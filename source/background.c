@@ -79,6 +79,7 @@
  */
 
 #include "background.h"
+#include <stdbool.h>
 
 /**
  * Background quantities at given conformal time tau.
@@ -283,6 +284,8 @@ int background_functions(
 
   /** - initialize local variables */
   a = pvecback_B[pba->index_bi_a];
+  
+  
   rho_tot = 0.;
   p_tot = 0.;
   dp_dloga = 0.;
@@ -360,6 +363,7 @@ int background_functions(
   }
 
   /* ncdm */
+
   if (pba->has_ncdm == _TRUE_) {
 
     /* Loop over species: */
@@ -951,6 +955,8 @@ int background_indices(
   class_define_index(pba->index_bg_rho_ncdm1,pba->has_ncdm,index_bg,pba->N_ncdm);
   class_define_index(pba->index_bg_p_ncdm1,pba->has_ncdm,index_bg,pba->N_ncdm);
   class_define_index(pba->index_bg_pseudo_p_ncdm1,pba->has_ncdm,index_bg,pba->N_ncdm);
+  class_define_index(pba->index_bg_T_ncdm1,pba->has_ncdm,index_bg,pba->N_ncdm);
+  class_define_index(pba->index_bg_MU_ncdm1,pba->has_ncdm,index_bg,pba->N_ncdm);
 
   /* - index for dcdm */
   class_define_index(pba->index_bg_rho_dcdm,pba->has_dcdm,index_bg,1);
@@ -1133,6 +1139,18 @@ int background_ncdm_distribution(
   ksi = pba->ksi_ncdm[n_ncdm];      /* extract chemical potential */
 
   /** - shall we interpolate in file, or shall we use analytical formula below? */
+  
+//   SJW
+// Note: redshifts (z_maj), Temp Majoron [eV] (T_maj), Temp Nu [eV] (T_nu), Chem Pot Maj [eV] (Mu_maj), Chem Pot Nu [eV] (Mu_nu)
+// length of array: pba->len_maj
+
+
+//      This is a quick test....
+//
+//      for (int ii=0; ii <= pba->len_maj; ii++){
+//        printf("HERE: %d \t %e \t %e \t %e \t %e \t %e \n", ii, pba->z_maj[ii], pba->T_maj[ii], pba->T_nu[ii], pba->Mu_maj[ii], pba->Mu_nu[ii]);
+//    }
+//    exit(0);
 
   /** - a) deal first with the case of interpolating in files */
   if (pba->got_files[n_ncdm]==_TRUE_) {
@@ -1284,6 +1302,8 @@ int background_ncdm_test_function(
  * @param pba Input/Output: background structure
  */
 
+
+// SJW -- ADD HERE
 int background_ncdm_init(
                          struct precision *ppr,
                          struct background *pba
@@ -1308,6 +1328,24 @@ int background_ncdm_init(
   class_alloc(pba->q_size_ncdm,sizeof(int)*pba->N_ncdm,pba->error_message);
   class_alloc(pba->q_size_ncdm_bg,sizeof(int)*pba->N_ncdm,pba->error_message);
   class_alloc(pba->factor_ncdm,sizeof(double)*pba->N_ncdm,pba->error_message);
+  
+  
+   /// SJW -- Implimenting background functions....
+   int test, lenIndx;
+   //printf("At function... \n");
+   class_alloc(pba->z_maj, sizeof(double*)*1000,pba->error_message);
+   class_alloc(pba->T_maj, sizeof(double*)*1000,pba->error_message);
+   class_alloc(pba->T_nu, sizeof(double*)*1000,pba->error_message);
+   class_alloc(pba->Mu_maj, sizeof(double*)*1000,pba->error_message);
+   class_alloc(pba->Mu_nu, sizeof(double*)*1000,pba->error_message);
+   test = background_MB_approx(pba, &lenIndx);
+   pba->len_maj = lenIndx;
+    
+//    for (int ii=0; ii <= pba->len_maj; ii++){
+//        printf("HERE: %d \t %e \t %e \t %e \t %e \t %e \n", ii, pba->z_maj[ii], pba->T_maj[ii], pba->T_nu[ii], pba->Mu_maj[ii], pba->Mu_nu[ii]);
+//    }
+//    exit(0);
+//
 
   for(k=0, filenum=0; k<pba->N_ncdm; k++){
     pbadist.n_ncdm = k;
@@ -1690,6 +1728,8 @@ int background_solve(
   int last_index=0;
   /* comoving radius coordinate in Mpc (equal to conformal distance in flat case) */
   double comoving_radius=0.;
+  
+  int lenIndx;
 
   bpaw.pba = pba;
   class_alloc(pvecback,pba->bg_size*sizeof(double),pba->error_message);
@@ -1833,6 +1873,7 @@ int background_solve(
   class_alloc(pba->d2background_dtau2_table,pba->bt_size * pba->bg_size * sizeof(double),pba->error_message);
 
   /** - In a loop over lines, fill background table using the result of the integration plus background_functions() */
+  
   for (i=0; i < pba->bt_size; i++) {
 
     /* -> establish correspondence between the integrated variable and the bg variables */
@@ -1858,6 +1899,9 @@ int background_solve(
 
     /* -> compute all other quantities depending only on {B} variables.
        The value of {B} variables in pData are also copied to pvecback.*/
+      
+
+    
     class_call(background_functions(pba,pData+i*pba->bi_size, pba->long_info, pvecback),
                pba->error_message,
                pba->error_message);
@@ -1875,7 +1919,9 @@ int background_solve(
     class_test(memcopy_result != pba->background_table + i*pba->bg_size,
                pba->error_message,
                "cannot copy data back to pba->background_table");
+      
   }
+    
 
   /** - free the growTable with gt_free() */
 
@@ -2132,6 +2178,8 @@ int background_initial_conditions(
   }
 
   /* Infer pvecback from pvecback_integration */
+
+  
   class_call(background_functions(pba, pvecback_integration, pba->normal_info, pvecback),
              pba->error_message,
              pba->error_message);
@@ -2708,3 +2756,743 @@ int background_output_budget(
 
   return _SUCCESS_;
 }
+
+
+/**
+ * SJW: New function
+ */
+
+int background_MB_approx(
+//                            /* Only calculate for non-NULL pointers: */
+                            struct background *pba,
+                            int *lenIndx) {
+  double Mnu, mMaj;
+  double GammaEff, GammaPhi;
+  double tcur, presNu, presMaj;
+  double rhoMaj, nMaj, rhoNu, nNu;
+  double muMh, muMstore;
+  double Hub, h_cmb, H_preF, h_mat;
+  double degNu=6, degMaj=1, neff;
+  double k1[5], k2[5], k3[5], k4[5], tmajH, tnuH, muNh;
+  int sigP=100, indx, worked;
+  double sigSt, ehold1, ehold0, trap0, trap1;
+  double maxBndMaj, maxBndNu, ThreshJump;
+  double zstart, zend, zhold, delT;
+  bool lower_sve_indx=false, shrinkDT=false, stop_loop=false, linearMu=false, linearMuN=false, linearT=false;
+  int numT=500000, sve_indx=100;
+  *lenIndx=0;
+  
+  GammaPhi = pba->Gamma_phi[0]; // Not yet generalized to deal with multiple neutrinos....
+  for (int n_ncdm=0; n_ncdm < pba->N_ncdm; n_ncdm++) {
+        if(pba->ncdm_background_distribution[n_ncdm]==_majoron_){mMaj = pba->m_ncdm_in_eV[n_ncdm];}
+        else{Mnu = pba->m_ncdm_in_eV[n_ncdm];}
+  }
+  
+  GammaEff = pba->Gamma_eff_ncdmphi[0];
+  if (GammaEff > 1e1) { GammaPhi = GammaPhi * 10. / GammaEff;}
+  
+  ThreshJump = mMaj * 2.;
+  zstart = 100. * mMaj / (pba->T_cmb * 8.6e-5) *  1.39578 - 1;
+  zend = mMaj / (pba->T_cmb * 8.6e-5) - 1.;
+  delT = (zend - zstart) / numT * 10;
+  double muNstore, TNstore, TMstore, TcmbStore, zstore;
+  zstore = zstart;
+  TcmbStore = pba->T_cmb * (1. + zstart)  * 8.6e-5; // eV
+  TNstore = pba->T_cmb * (1. + zstart) / 1.39578 * 8.6e-5; // eV
+
+  TMstore = 1e-2 * TNstore; // eV
+  muNstore = -1e-3 * TNstore; // eV
+  muMstore = - 10. * TMstore; // eV
+  H_preF = 8.*_PI_/3. * 6.707e-57; // eV^-2
+  indx = 0;
+  
+  while (!stop_loop){
+    indx+=1;
+      
+    if ((TcmbStore < ThreshJump)&&(!shrinkDT)){
+    delT /= 10.;
+    if (ThreshJump == mMaj){
+        ThreshJump = 0.6 * mMaj;
+        }
+    else {shrinkDT=true;}
+    }
+
+    
+    // evaluated at z_n -- get k_1
+    tmajH = TMstore;
+    tnuH = TNstore;
+    muMh = muMstore;
+    muNh = muNstore;
+    tcur = TcmbStore;
+    zhold = zstore;
+    
+    worked = RK_Eval(pba, GammaPhi, zhold, tmajH, tnuH, muMh, muNh, mMaj, tcur, Mnu, k1);
+    if (linearMu) {k1[2] *= muMh;}
+    if (linearMuN) {k1[3] *= muNh;}
+    //if (linearT) {k1[0] *= tmajH;}
+    //printf("K1: %e \t %e \t %e \t %e \t %e \n", k1[0], k1[1], k1[2], k1[3], k1[4]);
+
+    // get k_2, f(z + h/2, y + h k_1/2)
+    //tmajH = exp(log(TMstore) + delT * k1[0] / 2);
+    if (!linearT) {tmajH = exp(log(TMstore) + delT * k1[0] / 2);}
+    else {tmajH = TMstore +  delT * k1[0] / 2;}
+    tnuH = exp(log(TNstore)   + delT * k1[1] / 2);
+    if (!linearMu) {muMh = -exp(log(-muMstore) + delT * k1[2] / 2);}
+    else {muMh = muMstore +  delT * k1[2] / 2;}
+    if (!linearMuN) {muNh = -exp(log(-muNstore)  + delT * k1[3] / 2);}
+    else {muNh = muNstore +  delT * k1[3] / 2;}
+    
+    tcur = TcmbStore + delT * k1[4] / 2;
+    zhold = zstore + delT / 2.;
+    
+    worked = RK_Eval(pba, GammaPhi, zhold, tmajH, tnuH, muMh, muNh, mMaj, tcur, Mnu, k2);
+    if (linearMu) {k2[2] *= muMh;}
+    if (linearMuN) {k2[3] *= muNh;}
+    //if (linearT) {k2[0] *= tmajH;}
+    //printf("K2: %e \t %e \t %e \t %e \t %e \n", k2[0], k2[1], k2[2], k2[3], k2[4]);
+  
+    // get k_3, f(z + h/2, y + h k_2/2)
+    //tmajH = exp(log(TMstore) + delT * k2[0] / 2);
+    if (!linearT) {tmajH = exp(log(TMstore) + delT * k2[0] / 2);}
+    else {tmajH = TMstore +  delT * k2[0] / 2;}
+    tnuH = exp(log(TNstore)   + delT * k2[1] / 2);
+    if (!linearMu) {muMh = -exp(log(-muMstore) + delT * k2[2] / 2);}
+    else {muMh = muMstore +  delT * k2[2] / 2;}
+    if (!linearMuN) {muNh = -exp(log(-muNstore)  + delT * k2[3] / 2);}
+    else {muNh = muNstore +  delT * k2[3] / 2;}
+    
+    tcur = TcmbStore + delT * k2[4] / 2;
+    zhold = zstore + delT / 2.;
+    
+    worked = RK_Eval(pba, GammaPhi, zhold, tmajH, tnuH, muMh, muNh, mMaj, tcur, Mnu, k3);
+    if (linearMu) {k3[2] *= muMh;}
+    if (linearMuN) {k3[3] *= muNh;}
+    //if (linearT) {k3[0] *= tmajH;}
+    //printf("K3: %e \t %e \t %e \t %e \t %e \n", k3[0], k3[1], k3[2], k3[3], k3[4]);
+    
+    // get k_4, f(z + h, y + h k_3)
+    //tmajH = exp(log(TMstore) + delT * k3[0]);
+    if (!linearT) {tmajH = exp(log(TMstore) + delT * k3[0]);}
+    else {tmajH = TMstore +  delT * k3[0];}
+    tnuH = exp(log(TNstore)   + delT * k3[1]);
+    if (!linearMu) {muMh = -exp(log(-muMstore) + delT * k3[2]);}
+    else {muMh = muMstore +  delT * k3[2];}
+    if (!linearMu) {muNh = -exp(log(-muNstore)  + delT * k3[3]);}
+    else {muNh = muNstore +  delT * k3[3];}
+    
+    tcur = TcmbStore  + delT * k3[4];
+    zhold = zstore + delT;
+    worked = RK_Eval(pba, GammaPhi, zhold, tmajH, tnuH, muMh, muNh, mMaj, tcur, Mnu, k4);
+    if (linearMu) {k4[2] *= muMh;}
+    if (linearMuN) {k4[3] *= muNh;}
+    //if (linearT) {k4[0] *= tmajH;}
+    //printf("K4: %e \t %e \t %e \t %e \t %e \n", k4[0], k4[1], k4[2], k4[3], k4[4]);
+    
+    
+    // Fill new variables
+    if (!linearT) {TMstore = exp(log(TMstore) + delT / 6. * (k1[0] + 2. * (k2[0] + k3[0]) + k4[0]));}
+    else {TMstore = TMstore +  delT / 6. * (k1[0] + 2. * (k2[0] + k3[0]) + k4[0]);}
+    if (!linearMu) {muMstore = - exp(log(-muMstore) +  delT / 6. * (k1[2] + 2. * (k2[2] + k3[2]) + k4[2]));}
+    else {muMstore = muMstore +  delT / 6. * (k1[2] + 2. * (k2[2] + k3[2]) + k4[2]);}
+    if (!linearMuN) {muNstore = -exp(log(-muNstore) + delT / 6. * (k1[3] + 2. * (k2[3] + k3[3]) + k4[3]));}
+    else {muNstore = muNstore +  delT / 6. * (k1[3] + 2. * (k2[3] + k3[3]) + k4[3]);}
+    
+    TNstore = exp(log(TNstore) + delT / 6. * (k1[1] + 2. * (k2[1] + k3[1]) + k4[1]));
+    TcmbStore = TcmbStore + delT / 6. * (k1[4] + 2. * (k2[4] + k3[4]) + k4[4]);
+    zstore = zstore + delT;
+    
+    if ((!linearMu) && (muMstore > -5e-3) ){
+    //printf("Switching to linear.... \t %e \n", muMstore);
+    linearMu = true;
+//    linearT = true;
+    }
+    if ((!linearMuN) && (fabs(muNstore) < 1e-4) ){linearMuN = true;    }
+    
+      
+    if (!isfinite(TMstore)||!isfinite(TNstore)||!isfinite(muNstore)){
+        //printf("Failure.... Nans or infs appearing... \n");
+        //printf("%e \t %e \t %e \n", TMstore, TNstore, muNstore);
+        break;
+    }
+    
+
+    if (!lower_sve_indx&&(TcmbStore < 0.8 * mMaj)) {
+    sve_indx = 5;
+    lower_sve_indx = true;
+    }
+    // How often commpute energy densities, pressure, etc.
+    if (indx % sve_indx == 0){
+        tmajH = TMstore;
+        tnuH = TNstore;
+        muMh = muMstore;
+        muNh = muNstore;
+        tcur = TcmbStore;
+        zhold = zstore;
+    
+        h_cmb = pow(_PI_, 2) / 15. * pow(tcur, 4); // energy density in ev^4
+        h_mat = (pba->Omega0_b + pba->Omega0_cdm) * pow((1. + zhold), 3) * 8.0835e-11 * pow(2.998e10 * 6.58e-16, 3) * pow(pba->h, 2); // eV^4
+
+        maxBndMaj = 20. * tmajH;
+        if (maxBndMaj < (3. * mMaj)){maxBndMaj=3.*mMaj;}
+        nMaj = 0.;
+        rhoMaj = 0.;
+        presMaj=0.;
+        // Maj integration
+        sigSt = (double)((maxBndMaj - mMaj) / sigP);
+        for (int ii=0; ii < (sigP-1); ii++) {
+            ehold0 = mMaj + sigSt * (double)ii;
+            ehold1 = mMaj + sigSt * (double)(ii+1);
+            if (ii==0) {ehold0 += 1e-20;}
+            // n
+            trap0 = ehold0 * sqrt(ehold0*ehold0 - mMaj*mMaj) /  ( exp((ehold0 - muMh) / tmajH) - 1.) ;
+            trap1 = ehold1 * sqrt(ehold1*ehold1 - mMaj*mMaj) /  ( exp((ehold1 - muMh) / tmajH) - 1.);
+            nMaj += 0.5 * sigSt * (trap0 + trap1)  / (2 * _PI_ * _PI_);
+            // rho
+            trap0 = ehold0 * ehold0 * sqrt(ehold0*ehold0 - mMaj*mMaj) /  ( exp((ehold0 - muMh) / tmajH) - 1.);
+            trap1 = ehold1 * ehold1 * sqrt(ehold1*ehold1 - mMaj*mMaj) /  ( exp((ehold1 - muMh) / tmajH) - 1.) ;
+            rhoMaj += 0.5 * sigSt * (trap0 + trap1)  / (2 * _PI_ * _PI_);
+            // Pres
+            trap0 =   pow(ehold0*ehold0 - mMaj*mMaj, 1.5) /  ( exp((ehold0 - muMh) / tmajH) - 1.) ;
+            trap1 =  pow(ehold1*ehold1 - mMaj*mMaj, 1.5) /  ( exp((ehold1 - muMh) / tmajH) - 1.) ;
+            presMaj += degMaj * 0.5 * sigSt * (trap0 + trap1) / (6. * _PI_ * _PI_);
+        }
+        
+        maxBndNu = 20. * tnuH;
+        if (maxBndNu < (10 * Mnu)){maxBndNu=10*Mnu;}
+        nNu = 0.;
+        rhoNu = 0.;
+        presNu = 0.;
+        // Nu integration
+        sigSt = (double)((maxBndNu - Mnu) / sigP);
+        for (int ii=0; ii < (sigP-1); ii++) {
+            ehold0 = Mnu + sigSt * (double)ii;
+            ehold1 = Mnu + sigSt * (double)(ii+1);
+            if (ii==0) {ehold0 += 1e-20;}
+            // n
+            trap0 =  ehold0 * sqrt(ehold0*ehold0 - Mnu*Mnu) /  ( exp((sqrt(ehold0*ehold0 - Mnu*Mnu) - muNh) / tnuH) + 1.) / (2 * _PI_ * _PI_);
+            trap1 = ehold1 * sqrt(ehold1*ehold1 - Mnu*Mnu) /  ( exp((sqrt(ehold1*ehold1 - Mnu*Mnu) - muNh) / tnuH) + 1.) / (2 * _PI_ * _PI_);
+            nNu += 0.5 * sigSt * (trap0 + trap1);
+            // rho
+            trap0 =  ehold0 * ehold0 * sqrt(ehold0*ehold0 - Mnu*Mnu) /  ( exp((sqrt(ehold0*ehold0 - Mnu*Mnu) - muNh) / tnuH) + 1.) / (2 * _PI_ * _PI_);
+            trap1 =  ehold1 * ehold1 * sqrt(ehold1*ehold1 - Mnu*Mnu) /  ( exp((sqrt(ehold1*ehold1 - Mnu*Mnu) - muNh) / tnuH) + 1.) / (2 * _PI_ * _PI_);
+            rhoNu += 0.5 * sigSt * (trap0 + trap1);
+            // pressure
+            trap0 =   pow(ehold0*ehold0 - Mnu*Mnu, 1.5) /  ( exp((sqrt(ehold0*ehold0 - Mnu*Mnu) - muNh) / tnuH) + 1.) / (6. * _PI_ * _PI_);
+            trap1 =   pow(ehold1*ehold1 - Mnu*Mnu, 1.5) /  ( exp((sqrt(ehold1*ehold1 - Mnu*Mnu) - muNh) / tnuH) + 1.) / (6. * _PI_ * _PI_);
+            presNu += 0.5 * sigSt * (trap0 + trap1);
+        }
+       
+        neff = (degNu * rhoNu + rhoMaj) / h_cmb * (8./7.) * pow(11./4., 4./3.)  ;
+        //printf("indx: %d \t z: %e \t Tcmb: %e \t RhoM/RhoN: %e \t Neff: %e \n", *lenIndx, zstore, TcmbStore, rhoMaj/ (degNu * rhoNu), neff );
+        if ((rhoMaj / (degNu * rhoNu) < 1e-6)&&(TcmbStore < mMaj)){break;}
+        if (GammaEff > 1){
+            if (*lenIndx < 1){delT *= 5.;};}
+        else {
+        if (*lenIndx < 1){delT *= 4;};}
+
+        
+        pba->z_maj[*lenIndx] = zstore;
+        pba->T_maj[*lenIndx] = TMstore;
+        pba->T_nu[*lenIndx] = TNstore;
+        pba->Mu_maj[*lenIndx] = muMstore;
+        pba->Mu_nu[*lenIndx] = muNstore;
+        //z_maj[*lenIndx] = zstore;
+        //rho_maj[*lenIndx] = rhoMaj;
+        //rho_nu[*lenIndx] = degNu * rhoNu;
+        //press_maj[*lenIndx] = presMaj;
+        //press_nu[*lenIndx] = degNu * presNu;
+        
+        *lenIndx+=1;
+    }
+    //printf("indx: %d \t z: %e \t Tcmb: %e \t Tnu: %e \t Tmaj: %e \t Munu: %e \t MuMaj: %e \n", indx, zstore,  TcmbStore, TNstore, TMstore, muNstore, muMstore);
+    
+    if (TcmbStore < (0.01 * mMaj) ) {
+    //printf("Sucessful Finish... \n");
+        stop_loop = true;}
+    
+  }
+    
+    *lenIndx -= 1;
+//    z_maj[lenIndx] = zhold;
+//    rho_maj[lenIndx] = rho_maj[lenIndx - 1] * 1e-3;
+//    rho_nu[lenIndx] = rho_nu[lenIndx - 1] + rho_maj[lenIndx - 1];
+//    press_maj[lenIndx] = press_maj[lenIndx - 1] * 1e-3;
+//    press_nu[lenIndx] = press_nu[lenIndx - 1];
+    
+  return _SUCCESS_;
+}
+
+int RK_Eval(struct background *pba, double GammaPhi, double zhold, double tmajH, double tnuH, double muMh, double muNh, double mMaj, double tcur, double Mnu, double k[5]) {
+    double epsil=1e-10;
+    double H_preF = 8.*_PI_/3. * 6.707e-57; // eV^-2
+    //double minMuChP = -1e-50;
+    double nMaj=0, rhoMaj=0, presMaj=0, dnPdT=0, drPdT=0, dnPdmu=0, drPdmu=0, ColTrho=0, ColTn=0, sigSt;
+    double ehold0, ehold1, trap0, trap1, dnphidt, drhophidt, dnNudt, drhoNudt;
+    double nNu=0, rhoNu=0, presNu=0, dnNdT=0, drNdT=0, dnNdmu=0, drNdmu=0, maxBndNu, maxBndMaj;
+    double h_cmb, h_mat, holdCT, degNu=6, degMaj=1, Hub;
+    int sigP=100;
+    bool mu_off= false;
+    
+//    if (fabs(muMh) < fabs(minMuChP)){muMh = minMuChP;}
+//    if (!isfinite(muMh)||(muMh>=minMuChP)) {muMh = minMuChP;}
+//    if (!isfinite(muNh)||(muNh>=minCHP)) {muNh = minCHP;}
+//    if (!isfinite(tmajH)||(tmajH <= minMT)) {tmajH = minMT;}
+//    checkRat = fabs(muMh / tmajH);
+    //if (fabs(muMh / tmajH) > 40.) {muMh /= 2.;}
+    
+    
+    h_cmb = pow(_PI_, 2.) / 15. * pow(tcur, 4.); // energy density in ev^4
+    h_mat = (pba->Omega0_b + pba->Omega0_cdm) * pow((1. + zhold), 3) * 8.0835e-11 * pow(2.998e10 * 6.58e-16, 3) * pow(pba->h, 2); // eV^4
+
+    maxBndMaj = 20. * tmajH;
+    if (maxBndMaj < (3. * mMaj)){maxBndMaj=3. * mMaj;}
+    nMaj = 0.;
+    rhoMaj = 0.;
+    presMaj = 0.;
+    dnPdT=0.;
+    drPdT=0.;
+    dnPdmu=0.;
+    drPdmu=0.;
+    ColTrho=0.;
+    ColTn=0.;
+    // Maj integration
+    sigSt = (double)((maxBndMaj - mMaj) / sigP);
+    for (int ii=0; ii < (sigP-1); ii++) {
+        ehold0 = mMaj + sigSt * (double)ii;
+        ehold1 = mMaj + sigSt * (double)(ii+1);
+        if (ii==0) {ehold0 += epsil;}
+        // n
+        trap0 = ehold0 * sqrt(ehold0*ehold0 - mMaj*mMaj) /  ( exp((ehold0 - muMh) / tmajH) - 1.) ;
+        trap1 = ehold1 * sqrt(ehold1*ehold1 - mMaj*mMaj) /  ( exp((ehold1 - muMh) / tmajH) - 1.);
+        nMaj += degMaj * 0.5 * sigSt * (trap0 + trap1)  / (2. * _PI_ * _PI_);
+        // rho
+        trap0 = ehold0 * ehold0 * sqrt(ehold0*ehold0 - mMaj*mMaj) /  ( exp((ehold0 - muMh) / tmajH) - 1.);
+        trap1 = ehold1 * ehold1 * sqrt(ehold1*ehold1 - mMaj*mMaj) /  ( exp((ehold1 - muMh) / tmajH) - 1.) ;
+        rhoMaj += degMaj * 0.5 * sigSt * (trap0 + trap1)  / (2. * _PI_ * _PI_);
+        // Pres
+        trap0 =   pow(ehold0*ehold0 - mMaj*mMaj, 1.5) /  ( exp((ehold0 - muMh) / tmajH) - 1.) ;
+        trap1 =  pow(ehold1*ehold1 - mMaj*mMaj, 1.5) /  ( exp((ehold1 - muMh) / tmajH) - 1.) ;
+        presMaj += degMaj * 0.5 * sigSt * (trap0 + trap1) / (6. * _PI_ * _PI_);
+        // dndT
+        trap0 = ehold0 * sqrt(ehold0*ehold0 - mMaj*mMaj) * ((ehold0 - muMh) / (4. * tmajH *tmajH)) /   pow(sinh((ehold0 - muMh) / 2. / tmajH), 2.) ;
+        trap1 = ehold1 * sqrt(ehold1*ehold1 - mMaj*mMaj) * ((ehold1 - muMh) / (4. * tmajH *tmajH)) /   pow(sinh((ehold1 - muMh) / 2. / tmajH), 2.) ;
+        dnPdT += degMaj * 0.5 * sigSt * (trap0 + trap1) / (2. * _PI_ * _PI_);
+        // drhodT
+        trap0 = ehold0 * ehold0 * sqrt(ehold0*ehold0 - mMaj*mMaj) * ((ehold0 - muMh) / (4. * tmajH *tmajH)) /   pow(sinh((ehold0 - muMh) / 2. / tmajH), 2.) ;
+        trap1 = ehold1 * ehold1 * sqrt(ehold1*ehold1 - mMaj*mMaj) * ((ehold1 - muMh) / (4. * tmajH *tmajH)) /   pow(sinh((ehold1 - muMh) / 2. / tmajH), 2.) ;
+        drPdT += degMaj * 0.5 * sigSt * (trap0 + trap1) / (2. * _PI_ * _PI_);
+        // dndmu
+        trap0 = ehold0 * sqrt(ehold0*ehold0 - mMaj*mMaj) * (1. / (4.*tmajH)) /   pow(sinh((ehold0 - muMh) / 2. / tmajH), 2.) ;
+        trap1 = ehold1 * sqrt(ehold1*ehold1 - mMaj*mMaj) * (1. / (4. * tmajH )) /   pow(sinh((ehold1 - muMh) / 2. / tmajH), 2.) ;
+        dnPdmu += degMaj * 0.5 * sigSt * (trap0 + trap1) / (2. * _PI_ * _PI_);
+        // drdmu
+        trap0 = ehold0 * ehold0 * sqrt(ehold0*ehold0 - mMaj*mMaj) * (1 / (4. * tmajH)) / pow(sinh((ehold0 - muMh) / 2. / tmajH), 2.) ;
+        trap1 = ehold1 * ehold1 * sqrt(ehold1*ehold1 - mMaj*mMaj) * (1 / (4. * tmajH )) / pow(sinh((ehold1 - muMh) / 2. / tmajH), 2.) ;
+        drPdmu += degMaj *0.5 * sigSt * (trap0 + trap1) / (2. * _PI_ * _PI_);
+        // Collision term
+        trap0 = -ehold0 * GammaPhi * mMaj / ehold0 * tnuH * (exp(ehold0 / tmajH + 2. *muNh/tnuH) - exp(ehold0 / tnuH + muMh/tmajH)) / ((exp(ehold0 / tnuH) - exp(2.*muNh/tnuH))*(exp(ehold0/tmajH) - exp(muMh/tmajH)));
+        holdCT = ( exp((ehold0 - sqrt(ehold0*ehold0 - mMaj *mMaj)) / 2. / tnuH) + exp(muNh / tnuH)) *  (exp((ehold0 + sqrt(ehold0*ehold0 - mMaj *mMaj) + 2. * muNh) / 2. / tnuH) + exp(ehold0 / tnuH));
+        holdCT /= ((exp((ehold0 + sqrt(ehold0*ehold0 - mMaj *mMaj)) / 2. / tnuH) + exp(muNh / tnuH) ) * (exp((ehold0 + sqrt(ehold0*ehold0 - mMaj *mMaj) + 2. * muNh) / 2. / tnuH) + exp(ehold0 / tnuH)));
+        trap0 *= log(holdCT);
+
+        trap1 = -ehold1 * GammaPhi * mMaj / ehold1 * tnuH * (exp(ehold1 / tmajH + 2. *muNh/tnuH) - exp(ehold1 / tnuH + muMh/tmajH)) / ((exp(ehold1 / tnuH) - exp(2.*muNh/tnuH))*(exp(ehold1/tmajH) - exp(muMh/tmajH)));
+        holdCT = ( exp((ehold1 - sqrt(ehold1*ehold1 - mMaj *mMaj)) / 2. / tnuH) + exp(muNh / tnuH)) *  (exp((ehold1 + sqrt(ehold1*ehold1 - mMaj *mMaj) + 2. * muNh) / 2. / tnuH) + exp(ehold1 / tnuH));
+        holdCT /= ((exp((ehold1 + sqrt(ehold1*ehold1 - mMaj *mMaj)) / 2. / tnuH) + exp(muNh / tnuH) ) * (exp((ehold1 + sqrt(ehold1*ehold1 - mMaj *mMaj) + 2. * muNh) / 2. / tnuH) + exp(ehold1 / tnuH)));
+        trap1 *= log(holdCT);
+//        trap0 = - GammaPhi * sqrt(ehold0*ehold0 - mMaj*mMaj) * mMaj * (exp((muMh - ehold0)/tmajH) - exp((2*muNh - ehold0)/tnuH));
+//        trap1 = - GammaPhi * sqrt(ehold1*ehold1 - mMaj*mMaj) * mMaj * (exp((muMh - ehold1)/tmajH) - exp((2*muNh - ehold1)/tnuH));
+
+        ColTn += 0.5 * sigSt * (trap0 + trap1) / (2. * _PI_ * _PI_);
+        ColTrho +=  0.5 * sigSt * (trap0*ehold0 + trap1*ehold1) / (2. * _PI_ * _PI_);
+    }
+    dnphidt = ColTn;
+    drhophidt = ColTrho;
+    if (isnan(dnphidt)){dnphidt = 0.;}
+    if (isnan(drhophidt)){drhophidt = 0.;}
+    if (!isfinite(rhoMaj)){rhoMaj = 0.;}
+    if (!isfinite(nMaj)){nMaj = 0.;}
+    
+    drhoNudt = -drhophidt / 6.;
+    dnNudt = -2.*dnphidt / 6.;
+
+    maxBndNu = 20. * tnuH;
+    if (maxBndNu < (5. * Mnu)){maxBndNu=5.*Mnu;}
+    // Nu integration
+    sigSt = (double)((maxBndNu - Mnu) / sigP);
+    for (int ii=0; ii < (sigP-1); ii++) {
+        ehold0 = Mnu + sigSt * (double)ii;
+        ehold1 = Mnu + sigSt * (double)(ii+1);
+        if (ii==0) {ehold0 += epsil;}
+        // n
+        trap0 =   ehold0 * sqrt(ehold0*ehold0 - Mnu*Mnu) /  ( exp((sqrt(ehold0*ehold0 - Mnu*Mnu) - muNh) / tnuH) + 1.) / (2. * _PI_ * _PI_);
+        trap1 = ehold1 * sqrt(ehold1*ehold1 - Mnu*Mnu) /  ( exp((sqrt(ehold1*ehold1 - Mnu*Mnu) - muNh) / tnuH) + 1.) / (2. * _PI_ * _PI_);
+        nNu += 0.5 * sigSt * (trap0 + trap1);
+        // rho
+        trap0 =   ehold0 * ehold0 * sqrt(ehold0*ehold0 - Mnu*Mnu) /  ( exp((sqrt(ehold0*ehold0 - Mnu*Mnu) - muNh) / tnuH) + 1.) / (2. * _PI_ * _PI_);
+        trap1 =  ehold1 * ehold1 * sqrt(ehold1*ehold1 - Mnu*Mnu) /  ( exp((sqrt(ehold1*ehold1 - Mnu*Mnu) - muNh) / tnuH) + 1.) / (2. * _PI_ * _PI_);
+        rhoNu += 0.5 * sigSt * (trap0 + trap1);
+        // pressure
+        trap0 =  pow(ehold0*ehold0 - Mnu*Mnu, 1.5) /  ( exp((sqrt(ehold0*ehold0 - Mnu*Mnu) - muNh) / tnuH) + 1.) / (6. * _PI_ * _PI_);
+        trap1 =  pow(ehold1*ehold1 - Mnu*Mnu, 1.5) /  ( exp((sqrt(ehold1*ehold1 - Mnu*Mnu) - muNh) / tnuH) + 1.) / (6. * _PI_ * _PI_);
+        presNu += 0.5 * sigSt * (trap0 + trap1);
+        // dndT
+        trap0 =  ehold0 * sqrt(ehold0*ehold0 - Mnu*Mnu) * ((sqrt(ehold0*ehold0 - Mnu*Mnu) - muNh) / (4 * tnuH *tnuH)) /   pow(cosh((sqrt(ehold0*ehold0 - Mnu*Mnu) - muNh) / 2. / tnuH), 2.) ;
+        trap1 =  ehold1 * sqrt(ehold1*ehold1 - Mnu*Mnu) * ((sqrt(ehold1*ehold1 - Mnu*Mnu) - muNh) / (4 * tnuH *tnuH)) /   pow(cosh((sqrt(ehold1*ehold1 - Mnu*Mnu) - muNh) / 2. / tnuH), 2.) ;
+        dnNdT += 0.5 * sigSt * (trap0 + trap1) / (2. * _PI_ * _PI_);
+        // drhodT
+        trap0 = ehold0 * ehold0 * sqrt(ehold0*ehold0 - Mnu*Mnu) * ((sqrt(ehold0*ehold0 - Mnu*Mnu) - muNh) / (4. * tnuH *tnuH)) /   pow(cosh((sqrt(ehold0*ehold0 - Mnu*Mnu) - muNh) / 2. / tnuH), 2.) ;
+        trap1 =  ehold1 * ehold1 * sqrt(ehold1*ehold1 - Mnu*Mnu) * ((sqrt(ehold1*ehold1 - Mnu*Mnu) - muNh) / (4. * tnuH *tnuH)) /   pow(cosh((sqrt(ehold1*ehold1 - Mnu*Mnu) - muNh) / 2. / tnuH), 2.) ;
+        drNdT += 0.5 * sigSt * (trap0 + trap1) / (2. * _PI_ * _PI_);
+        // dndmu
+        trap0 = ehold0 * sqrt(ehold0*ehold0 - Mnu*Mnu)  /   (2. * tnuH * cosh((sqrt(ehold0*ehold0 - Mnu*Mnu) - muNh) / tnuH) + 2. *tnuH) ;
+        trap1 = ehold1 * sqrt(ehold1*ehold1 - Mnu*Mnu) /   (2. * tnuH * cosh((sqrt(ehold1*ehold1 - Mnu*Mnu) - muNh) / tnuH) + 2. *tnuH) ;
+        dnNdmu += 0.5 * sigSt * (trap0 + trap1) / (2. * _PI_ * _PI_);
+        // drdmu
+        trap0 =  ehold0 * ehold0 * sqrt(ehold0*ehold0 - Mnu*Mnu) /  (2. * tnuH * cosh((sqrt(ehold0*ehold0 - Mnu*Mnu) - muNh) / tnuH) + 2. *tnuH) ;
+        trap1 =   ehold1 * ehold1 * sqrt(ehold1*ehold1 - Mnu*Mnu) / (2. * tnuH * cosh((sqrt(ehold1*ehold1 - Mnu*Mnu) - muNh) / tnuH) + 2. *tnuH) ;
+        drNdmu += 0.5 * sigSt * (trap0 + trap1) / (2. * _PI_ * _PI_);
+    }
+    Hub = sqrt( H_preF * (degNu * rhoNu + rhoMaj + h_mat + h_cmb)) ; // eV
+    
+    k[2] = -(3*((presMaj + rhoMaj) * dnPdT - nMaj * drPdT) - (dnPdT * drhophidt - drPdT * dnphidt) / Hub) / (dnPdmu * drPdT - dnPdT * drPdmu) / (1. + zhold) / muMh;
+    k[0] = (3*((presMaj + rhoMaj) * dnPdmu - nMaj * drPdmu) - (dnPdmu * drhophidt - drPdmu * dnphidt) / Hub) / (dnPdmu * drPdT - dnPdT * drPdmu) / (1. + zhold) / tmajH;
+    k[1] = (3*((presNu + rhoNu) * dnNdmu - nNu * drNdmu) - (dnNdmu * drhoNudt - drNdmu * dnNudt) / Hub) / (dnNdmu * drNdT - dnNdT * drNdmu) / (1. + zhold) / tnuH;
+    k[3] = -(3*((presNu + rhoNu) * dnNdT - nNu * drNdT) - (dnNdT * drhoNudt - drNdT * dnNudt) / Hub) / (dnNdmu * drNdT - dnNdT * drNdmu) / (1. + zhold) / muNh;
+    k[4] = tcur / (1. + zhold);
+    //printf("Check: %e \t %e \t %e \t %e \t %e \n", tmajH, muMh, rhoMaj, nMaj,presMaj);
+    
+    return _SUCCESS_; }
+
+double bessk( int n, double x )
+/*------------------------------------------------------------*/
+/* PURPOSE: Evaluate modified Bessel function Kn(x) and n >= 0*/
+/* Note that for x == 0 the functions bessy and bessk are not */
+/* defined and a blank is returned.                           */
+/*------------------------------------------------------------*/
+{
+   int j;
+   double bk,bkm,bkp,tox;
+
+
+   if (n < 0 || x == 0.0)
+   {
+      return( 0. );
+   }
+   if (n == 0)
+      return( bessk0(x) );
+   if (n == 1)
+      return( bessk1(x) );
+
+   tox=2.0/x;
+   bkm=bessk0(x);
+   bk=bessk1(x);
+   for (j=1;j<n;j++) {
+      bkp=bkm+j*tox*bk;
+      bkm=bk;
+      bk=bkp;
+   }
+   return bk;
+}
+
+double bessk0( double x )
+/*------------------------------------------------------------*/
+/* PURPOSE: Evaluate modified Bessel function Kn(x) and n=0.  */
+/*------------------------------------------------------------*/
+{
+   double y,ans;
+
+   if (x <= 2.0) {
+      y=x*x/4.0;
+      ans=(-log(x/2.0)*bessi0(x))+(-0.57721566+y*(0.42278420
+         +y*(0.23069756+y*(0.3488590e-1+y*(0.262698e-2
+         +y*(0.10750e-3+y*0.74e-5))))));
+   } else {
+      y=2.0/x;
+      ans=(exp(-x)/sqrt(x))*(1.25331414+y*(-0.7832358e-1
+         +y*(0.2189568e-1+y*(-0.1062446e-1+y*(0.587872e-2
+         +y*(-0.251540e-2+y*0.53208e-3))))));
+   }
+   return ans;
+}
+
+
+
+
+double bessk1( double x )
+/*------------------------------------------------------------*/
+/* PURPOSE: Evaluate modified Bessel function Kn(x) and n=1.  */
+/*------------------------------------------------------------*/
+{
+   double y,ans;
+
+   if (x <= 2.0) {
+      y=x*x/4.0;
+      ans=(log(x/2.0)*bessi1(x))+(1.0/x)*(1.0+y*(0.15443144
+         +y*(-0.67278579+y*(-0.18156897+y*(-0.1919402e-1
+         +y*(-0.110404e-2+y*(-0.4686e-4)))))));
+   } else {
+      y=2.0/x;
+      ans=(exp(-x)/sqrt(x))*(1.25331414+y*(0.23498619
+         +y*(-0.3655620e-1+y*(0.1504268e-1+y*(-0.780353e-2
+         +y*(0.325614e-2+y*(-0.68245e-3)))))));
+   }
+   return ans;
+}
+
+
+double bessi0( double x )
+/*------------------------------------------------------------*/
+/* PURPOSE: Evaluate modified Bessel function In(x) and n=0.  */
+/*------------------------------------------------------------*/
+{
+   double ax,ans;
+   double y;
+
+
+   if ((ax=fabs(x)) < 3.75) {
+      y=x/3.75,y=y*y;
+      ans=1.0+y*(3.5156229+y*(3.0899424+y*(1.2067492
+         +y*(0.2659732+y*(0.360768e-1+y*0.45813e-2)))));
+   } else {
+      y=3.75/ax;
+      ans=(exp(ax)/sqrt(ax))*(0.39894228+y*(0.1328592e-1
+         +y*(0.225319e-2+y*(-0.157565e-2+y*(0.916281e-2
+         +y*(-0.2057706e-1+y*(0.2635537e-1+y*(-0.1647633e-1
+         +y*0.392377e-2))))))));
+   }
+   return ans;
+}
+
+#define ACC 40.0
+#define BIGNO 1.0e10
+#define BIGNI 1.0e-10
+
+
+double bessi1( double x)
+/*------------------------------------------------------------*/
+/* PURPOSE: Evaluate modified Bessel function In(x) and n=1.  */
+/*------------------------------------------------------------*/
+{
+   double ax,ans;
+   double y;
+
+
+   if ((ax=fabs(x)) < 3.75) {
+      y=x/3.75,y=y*y;
+      ans=ax*(0.5+y*(0.87890594+y*(0.51498869+y*(0.15084934
+         +y*(0.2658733e-1+y*(0.301532e-2+y*0.32411e-3))))));
+   } else {
+      y=3.75/ax;
+      ans=0.2282967e-1+y*(-0.2895312e-1+y*(0.1787654e-1
+         -y*0.420059e-2));
+      ans=0.39894228+y*(-0.3988024e-1+y*(-0.362018e-2
+         +y*(0.163801e-2+y*(-0.1031555e-1+y*ans))));
+      ans *= (exp(ax)/sqrt(ax));
+   }
+   return x < 0.0 ? -ans : ans;
+}
+
+double bessj0( double x )
+/*------------------------------------------------------------*/
+/* PURPOSE: Evaluate Bessel function of first kind and order  */
+/*          0 at input x                                      */
+/*------------------------------------------------------------*/
+{
+   double ax,z;
+   double xx,y,ans,ans1,ans2;
+
+   if ((ax=fabs(x)) < 8.0) {
+      y=x*x;
+      ans1=57568490574.0+y*(-13362590354.0+y*(651619640.7
+         +y*(-11214424.18+y*(77392.33017+y*(-184.9052456)))));
+      ans2=57568490411.0+y*(1029532985.0+y*(9494680.718
+         +y*(59272.64853+y*(267.8532712+y*1.0))));
+      ans=ans1/ans2;
+   } else {
+      z=8.0/ax;
+      y=z*z;
+      xx=ax-0.785398164;
+      ans1=1.0+y*(-0.1098628627e-2+y*(0.2734510407e-4
+         +y*(-0.2073370639e-5+y*0.2093887211e-6)));
+      ans2 = -0.1562499995e-1+y*(0.1430488765e-3
+         +y*(-0.6911147651e-5+y*(0.7621095161e-6
+         -y*0.934935152e-7)));
+      ans=sqrt(0.636619772/ax)*(cos(xx)*ans1-z*sin(xx)*ans2);
+   }
+   return ans;
+}
+
+
+
+double bessj1( double x )
+/*------------------------------------------------------------*/
+/* PURPOSE: Evaluate Bessel function of first kind and order  */
+/*          1 at input x                                      */
+/*------------------------------------------------------------*/
+{
+   double ax,z;
+   double xx,y,ans,ans1,ans2;
+
+   if ((ax=fabs(x)) < 8.0) {
+      y=x*x;
+      ans1=x*(72362614232.0+y*(-7895059235.0+y*(242396853.1
+         +y*(-2972611.439+y*(15704.48260+y*(-30.16036606))))));
+      ans2=144725228442.0+y*(2300535178.0+y*(18583304.74
+         +y*(99447.43394+y*(376.9991397+y*1.0))));
+      ans=ans1/ans2;
+   } else {
+      z=8.0/ax;
+      y=z*z;
+      xx=ax-2.356194491;
+      ans1=1.0+y*(0.183105e-2+y*(-0.3516396496e-4
+         +y*(0.2457520174e-5+y*(-0.240337019e-6))));
+      ans2=0.04687499995+y*(-0.2002690873e-3
+         +y*(0.8449199096e-5+y*(-0.88228987e-6
+         +y*0.105787412e-6)));
+      ans=sqrt(0.636619772/ax)*(cos(xx)*ans1-z*sin(xx)*ans2);
+      if (x < 0.0) ans = -ans;
+   }
+   return ans;
+}
+
+
+
+/*
+#>            bessj.dc2
+
+Function:     bessj
+
+Purpose:      Evaluate Bessel function of first kind of integer order.
+
+Category:     MATH
+
+File:         bessel.c
+
+Author:       M.G.R. Vogelaar
+
+Use:          #include "bessel.h"
+              double   result;
+              result = bessj( int n,
+                              double x )
+
+
+              bessj    Return the Bessel function of integer order
+                       for input value x.
+              n        Integer order of Bessel function.
+              x        Double at which the function is evaluated.
+
+ 
+Description:  bessj evaluates at x the Bessel function of the first kind
+              and of integer order n.
+              This routine is NOT callable in FORTRAN.
+
+Updates:      Jun 29, 1998: VOG, Document created.
+#<
+*/
+
+
+double bessj( int n, double x )
+/*------------------------------------------------------------*/
+/* PURPOSE: Evaluate Bessel function of first kind and order  */
+/*          n at input x                                      */
+/* The function can also be called for n = 0 and n = 1.       */
+/*------------------------------------------------------------*/
+{
+   int    j, jsum, m;
+   double ax, bj, bjm, bjp, sum, tox, ans;
+
+
+   if (n < 0)
+   {
+      double   dblank;
+      return( 0. );
+   }
+   ax=fabs(x);
+   if (n == 0)
+      return( bessj0(ax) );
+   if (n == 1)
+      return( bessj1(ax) );
+    
+
+   if (ax == 0.0)
+      return 0.0;
+   else if (ax > (double) n) {
+      tox=2.0/ax;
+      bjm=bessj0(ax);
+      bj=bessj1(ax);
+      for (j=1;j<n;j++) {
+         bjp=j*tox*bj-bjm;
+         bjm=bj;
+         bj=bjp;
+      }
+      ans=bj;
+   } else {
+      tox=2.0/ax;
+      m=2*((n+(int) sqrt(ACC*n))/2);
+      jsum=0;
+      bjp=ans=sum=0.0;
+      bj=1.0;
+      for (j=m;j>0;j--) {
+         bjm=j*tox*bj-bjp;
+         bjp=bj;
+         bj=bjm;
+         if (fabs(bj) > BIGNO) {
+            bj *= BIGNI;
+            bjp *= BIGNI;
+            ans *= BIGNI;
+            sum *= BIGNI;
+         }
+         if (jsum) sum += bj;
+         jsum=!jsum;
+         if (j == n) ans=bjp;
+      }
+      sum=2.0*sum-bj;
+      ans /= sum;
+   }
+   return  x < 0.0 && n%2 == 1 ? -ans : ans;
+}
+
+double bessi( int n, double x)
+/*------------------------------------------------------------*/
+/* PURPOSE: Evaluate modified Bessel function In(x) for n >= 0*/
+/*------------------------------------------------------------*/
+{
+   int j;
+   double bi,bim,bip,tox,ans;
+
+
+   if (n < 0)
+   {
+      double   dblank;
+      
+      return( 0. );
+   }
+   if (n == 0)
+      return( bessi0(x) );
+   if (n == 1)
+      return( bessi1(x) );
+
+
+   if (x == 0.0)
+      return 0.0;
+   else {
+      tox=2.0/fabs(x);
+      bip=ans=0.0;
+      bi=1.0;
+      for (j=2*(n+(int) sqrt(ACC*n));j>0;j--) {
+         bim=bip+j*tox*bi;
+         bip=bi;
+         bi=bim;
+         if (fabs(bi) > BIGNO) {
+            ans *= BIGNI;
+            bi *= BIGNI;
+            bip *= BIGNI;
+         }
+         if (j == n) ans=bip;
+      }
+      ans *= bessi0(x)/bi;
+      return  x < 0.0 && n%2 == 1 ? -ans : ans;
+   }
+}
+
+

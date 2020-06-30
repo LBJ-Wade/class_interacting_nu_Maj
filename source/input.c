@@ -1195,7 +1195,7 @@ int input_read_parameters(
                "Nonzero values for both Gamma_eff_ncdmphi and Gamma_phi for ncdm species %d are specified!",n);
       if(pba->Gamma_eff_ncdmphi[n]!=0.0){
         class_test(pba->M_phi==0.0,errmsg,"M_phi is zero but you have Gamma_eff_ncdmphi nonzero. Please specify a value for M_phi.")
-        pba->Gamma_phi[n]= 3.18e-28*pba->M_phi*pba->M_phi*pow(1-4*pba->m_ncdm_in_eV[pba->entry_is_M_phi-1]*pba->m_ncdm_in_eV[pba->entry_is_M_phi-1]/pba->M_phi/pba->M_phi,0.5)*pba->Gamma_eff_ncdmphi[n];//for the moment we assume degenerate neutrino
+        pba->Gamma_phi[n]= 3.18e-28*pba->M_phi*pba->M_phi*pow(1-4*pba->m_ncdm_in_eV[pba->entry_is_M_phi-1]*pba->m_ncdm_in_eV[pba->entry_is_M_phi-1]/pba->M_phi/pba->M_phi,0.5)*pba->Gamma_eff_ncdmphi[n];//for the moment we assume degenerate neutrino -- in eV!
         // printf("pba->Gamma_phi[n] %e\n", pba->Gamma_phi[n]);
       }
       if(pba->Gamma_phi[n]!=0.0){

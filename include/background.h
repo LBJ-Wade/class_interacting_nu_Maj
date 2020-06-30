@@ -214,6 +214,8 @@ struct background
   int index_bg_rho_ncdm1;     /**< density of first ncdm species (others contiguous) */
   int index_bg_p_ncdm1;       /**< pressure of first ncdm species (others contiguous) */
   int index_bg_pseudo_p_ncdm1;/**< another statistical momentum useful in ncdma approximation */
+  int index_bg_T_ncdm1;     /**< density of first ncdm species (others contiguous) */
+  int index_bg_MU_ncdm1;     /**< density of first ncdm species (others contiguous) */
 
   int index_bg_rho_tot;       /**< Total density */
   int index_bg_p_tot;         /**< Total pressure */
@@ -334,6 +336,14 @@ struct background
   int * q_size_ncdm_bg; /**< Size of the q_ncdm_bg arrays */
   int * q_size_ncdm;    /**< Size of the q_ncdm arrays */
   double * factor_ncdm; /**< List of normalization factors for calculating energy density etc.*/
+  
+  // SJW
+  double * z_maj; /**/
+  double * T_maj; /**/
+  double * T_nu; /**/
+  double * Mu_maj; /**/
+  double * Mu_nu; /**/
+  int len_maj; /**/
 
   //@}
 
@@ -534,6 +544,18 @@ extern "C" {
 			 void * parameters_and_workspace,
 			 ErrorMsg error_message
 			 );
+// SJW
+ int background_MB_approx(struct background *pba, int *lenIndx);
+ int RK_Eval(struct background *pba, double GammaPhi, double zhold, double tmajH, double tnuH, double muMh, double muNh, double mMaj, double tcur, double mNu, double k[5]);
+ double bessk( int n, double x );
+ double bessk1( double x );
+ double bessk0( double x );
+ double bessi1( double x);
+ double bessi0( double x);
+ double bessj( int n, double x );
+ double bessj0( double x );
+ double bessj1( double x );
+ double bessi( int n, double x);
 
   /** Scalar field potential and its derivatives **/
   double V_scf(
