@@ -266,9 +266,9 @@ int background_functions(
   /* scale factor relative to scale factor today */
   double a_rel;
   /* background ncdm quantities */
-  double rho_ncdm,p_ncdm,pseudo_p_ncdm;
+  double rho_ncdm,p_ncdm,pseudo_p_ncdm, T_ncdm, mu_ncdm, M, qmax;
   /* index for n_ncdm species */
-  int n_ncdm;
+  int n_ncdm, index_q;
   /* fluid's time-dependent equation of state parameter */
   double w_fld, dw_over_da, integral_fld;
   /* scale factor */
@@ -284,8 +284,8 @@ int background_functions(
 
   /** - initialize local variables */
   a = pvecback_B[pba->index_bi_a];
-  
-  
+
+
   rho_tot = 0.;
   p_tot = 0.;
   dp_dloga = 0.;
@@ -371,13 +371,42 @@ int background_functions(
 
       /* function returning background ncdm[n_ncdm] quantities (only
          those for which non-NULL pointers are passed) */
+
+    if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
+      class_call(interpolate_background_ncdm_distribution(pba,n_ncdm,1./a_rel-1.),
+      pba->error_message,
+      pba->error_message);
+      class_call(interpolate_T_and_mu_at_z(pba,n_ncdm,1./a_rel-1.,&T_ncdm,&mu_ncdm),
+      pba->error_message,
+      pba->error_message);
+      pvecback[pba->index_bg_T_ncdm1+n_ncdm] = T_ncdm;
+      pvecback[pba->index_bg_Mu_ncdm1+n_ncdm] = mu_ncdm;
+      M = pba->m_ncdm_in_eV[n_ncdm];
+      if(20*T_ncdm > 3 *M){
+        qmax = pow(20*20*T_ncdm*T_ncdm-(M*M),0.5)*a_rel/pba->ncdm_qmax[n_ncdm];
+      }else{
+        qmax = pow(8*M*M,0.5)*a_rel/pba->ncdm_qmax[n_ncdm];
+      }
+    }else{
+      for(index_q = 0; index_q < pba->q_size_ncdm[n_ncdm]; index_q++){
+      pba->f_ncdm[n_ncdm][index_q] = 1;//f_ncdm is already included in w_ncdm_bg in the case of standard neutrinos.
+      }
+      qmax=1;
+      M = pba->M_ncdm[n_ncdm];
+    }
+
+
+
       class_call(background_ncdm_momenta(
                                          pba->q_ncdm_bg[n_ncdm],
                                          pba->w_ncdm_bg[n_ncdm],
+                                         pba->f_ncdm[n_ncdm],
                                          pba->q_size_ncdm_bg[n_ncdm],
-                                         pba->M_ncdm[n_ncdm],
+                                         M,
+                                         qmax,
                                          pba->factor_ncdm[n_ncdm],
                                          1./a_rel-1.,
+                                         n_ncdm,
                                          NULL,
                                          &rho_ncdm,
                                          &p_ncdm,
@@ -385,7 +414,7 @@ int background_functions(
                                          &pseudo_p_ncdm),
                  pba->error_message,
                  pba->error_message);
-
+      // printf("n_ncdm %d z %e rho_ncdm %e\n",n_ncdm, a_rel, rho_ncdm);
       pvecback[pba->index_bg_rho_ncdm1+n_ncdm] = rho_ncdm;
       rho_tot += rho_ncdm;
       pvecback[pba->index_bg_p_ncdm1+n_ncdm] = p_ncdm;
@@ -625,8 +654,8 @@ int background_init(
   /** Summary: */
 
   /** - define local variables */
-  int n_ncdm;
-  double rho_ncdm_rel,rho_nu_rel;
+  int n_ncdm, index_q;
+  double rho_ncdm_rel,rho_nu_rel, M, T_ncdm, mu_ncdm, qmax;
   double Neff, N_dark;
   double w_fld, dw_over_da, integral_fld;
   int filenum=0;
@@ -653,13 +682,41 @@ int background_init(
             filenum++;
           }
 
+        if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
+            // printf("1./(ppr->a_ini_over_a_today_default * pba->a_today)-1. %e\n", 1./(ppr->a_ini_over_a_today_default * pba->a_today)-1.);
+            class_call(interpolate_background_ncdm_distribution(pba,n_ncdm,1./(ppr->a_ini_over_a_today_default * pba->a_today)-1.),
+            pba->error_message,
+            pba->error_message);
+            class_call(interpolate_T_and_mu_at_z(pba,n_ncdm,1./(ppr->a_ini_over_a_today_default * pba->a_today)-1.,&T_ncdm,&mu_ncdm),
+            pba->error_message,
+            pba->error_message);
+            M = pba->m_ncdm_in_eV[n_ncdm];
+            if(20*T_ncdm > 3 *M){
+              qmax = pow(20*20*T_ncdm*T_ncdm-(M*M),0.5)*ppr->a_ini_over_a_today_default * pba->a_today/pba->ncdm_qmax[n_ncdm];
+            }else{
+              qmax = pow(8*M*M,0.5)*ppr->a_ini_over_a_today_default * pba->a_today/pba->ncdm_qmax[n_ncdm];
+            }
+            // printf("right after bug\n");
+          }else{
+            for(index_q = 0; index_q < pba->q_size_ncdm[n_ncdm]; index_q++){
+            pba->f_ncdm[n_ncdm][index_q] = 1;//f_ncdm is already included in w_ncdm_bg in the case of standard neutrinos.
+            }
+            qmax = 1; //qmax alrady taken into account when defning integral weights.
+            M = pba->M_ncdm[n_ncdm];
+          }
+
+
           /* call this function to get rho_ncdm */
           background_ncdm_momenta(pba->q_ncdm_bg[n_ncdm],
                                   pba->w_ncdm_bg[n_ncdm],
+                                  pba->f_ncdm[n_ncdm],
                                   pba->q_size_ncdm_bg[n_ncdm],
-                                  0.,
+                                  // pba->M_ncdm[n_ncdm],
+                                  M,
+                                  qmax,
                                   pba->factor_ncdm[n_ncdm],
-                                  0.,
+                                  0,
+                                  n_ncdm,
                                   NULL,
                                   &rho_ncdm_rel,
                                   NULL,
@@ -676,11 +733,13 @@ int background_init(
           rho_nu_rel = 56.0/45.0*pow(_PI_,6)*pow(4.0/11.0,4.0/3.0)*_G_/pow(_h_P_,3)/pow(_c_,7)*
             pow(_Mpc_over_m_,2)*pow(pba->T_cmb*_k_B_,4);
 
-          printf(" -> ncdm species i=%d sampled with %d (resp. %d) points for purpose of background (resp. perturbation) integration. In the relativistic limit it gives Delta N_eff = %g\n",
+          printf(" -> ncdm species i=%d sampled with %d (resp. %d) points for purpose of background (resp. perturbation) integration. In the relativistic limit: rho = %e & rho_nu %e, it gives Delta N_eff = %g\n",
                  n_ncdm+1,
                  pba->q_size_ncdm_bg[n_ncdm],
                  pba->q_size_ncdm[n_ncdm],
-                 rho_ncdm_rel/rho_nu_rel);
+                 rho_ncdm_rel,
+                 rho_nu_rel,
+                 3.046-rho_ncdm_rel/rho_nu_rel);
 
           Neff += rho_ncdm_rel/rho_nu_rel;
         }
@@ -956,7 +1015,7 @@ int background_indices(
   class_define_index(pba->index_bg_p_ncdm1,pba->has_ncdm,index_bg,pba->N_ncdm);
   class_define_index(pba->index_bg_pseudo_p_ncdm1,pba->has_ncdm,index_bg,pba->N_ncdm);
   class_define_index(pba->index_bg_T_ncdm1,pba->has_ncdm,index_bg,pba->N_ncdm);
-  class_define_index(pba->index_bg_MU_ncdm1,pba->has_ncdm,index_bg,pba->N_ncdm);
+  class_define_index(pba->index_bg_Mu_ncdm1,pba->has_ncdm,index_bg,pba->N_ncdm);
 
   /* - index for dcdm */
   class_define_index(pba->index_bg_rho_dcdm,pba->has_dcdm,index_bg,1);
@@ -1118,14 +1177,18 @@ int background_indices(
 int background_ncdm_distribution(
                                  void * pbadist,
                                  double q,
-                                 double * f0
+                                 double * f0,
+                                 double z
                                  ) {
   struct background * pba;
   struct background_parameters_for_distributions * pbadist_local;
-  int n_ncdm,lastidx;
-  double ksi;
+  int n_ncdm,lastidx,last_index;
+  double T_ncdm,mu_ncdm,T0_ncdm;
+  double ksi,qmax;
   double qlast,dqlast,f0last,df0last;
   double *param;
+  double eps;
+
   /* Variables corresponding to entries in param: */
   //double square_s12,square_s23,square_s13;
   //double mixing_matrix[3][3];
@@ -1139,7 +1202,7 @@ int background_ncdm_distribution(
   ksi = pba->ksi_ncdm[n_ncdm];      /* extract chemical potential */
 
   /** - shall we interpolate in file, or shall we use analytical formula below? */
-  
+
 //   SJW
 // Note: redshifts (z_maj), Temp Majoron [eV] (T_maj), Temp Nu [eV] (T_nu), Chem Pot Maj [eV] (Mu_maj), Chem Pot Nu [eV] (Mu_nu)
 // length of array: pba->len_maj
@@ -1253,19 +1316,142 @@ int background_ncdm_distribution(
 
         }
       } /* end of region not used, but shown as an example */
-    }else if(pba->ncdm_background_distribution[n_ncdm]==_fermi_dirac_v2_){
+    }else if(pba->ncdm_background_distribution[n_ncdm]==_fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm]==_majoron_){
+      interpolate_T_and_mu_at_z(pba,n_ncdm,z,&T_ncdm,&mu_ncdm);
 
-      *f0=1.0/pow(2*_PI_,3)*(1./(1+exp(q-ksi)));
-    }
-    else if(pba->ncdm_background_distribution[n_ncdm]==_majoron_){
-      *f0=1.0/pow(2*_PI_,3)*(1./(1-exp(q-ksi)));
-    }
+      if(20*T_ncdm > 3 *pba->m_ncdm_in_eV[n_ncdm]){
+        //obtained from the requirement: Emax = 20*Tncdm.
+        qmax = pow(20*20*T_ncdm*T_ncdm-(pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]),0.5)/(1+z)/pba->ncdm_qmax[n_ncdm];
+      }else{
+        qmax = pow(8*pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm],0.5)/(1+z)/pba->ncdm_qmax[n_ncdm];
+        // printf("qmax %e pba->ncdm_qmax[n_ncdm] %e\n", qmax,pba->ncdm_qmax[n_ncdm]);
+      }
+      eps = sqrt(q*q*(1+z)*(1+z)*qmax*qmax+pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]);//we define q in units of qmax.
 
-  }
+      if(pba->ncdm_background_distribution[n_ncdm]==_majoron_){
+        *f0=1.0/pow(2*_PI_,3)*(1./(exp((eps-mu_ncdm)/T_ncdm)-1));
+      }
+      else{
+        *f0=1.0/pow(2*_PI_,3)*(1./(exp((eps-mu_ncdm)/T_ncdm)+1));
+      }
+
+      if(*f0 == 0)*f0 = 1e-40; //to avoid bug; eps/T_ncdm can become too big for the exponential when m>>T.
+      // printf("here (1+z) %e ncdm %d mu_ncdm %e Tnu %e q %e eps %e Mncm %e  exp((eps-mu_ncdm)/T_ncdm) %e f0 %e\n",1+z,n_ncdm,mu_ncdm,T_ncdm, q,eps,pba->m_ncdm_in_eV[n_ncdm],exp((eps-mu_ncdm)/T_ncdm),*f0);
+
+      }
+      // printf("z %e *f0 %e\n",z,*f0);
+    }
 
   return _SUCCESS_;
 }
 
+
+int interpolate_T_and_mu_at_z(struct background *pba,int n_ncdm, double z,double *T_ncdm, double *mu_ncdm){
+
+ int last_index;
+
+  if (z > pba->z_maj[pba->len_maj] && z <= pba->z_maj[0]){
+
+    if(n_ncdm == pba->entry_is_M_phi){
+      /** - interpolate from pre-computed table with array_interpolate() */
+      class_call(array_interpolate_spline(
+                                          pba->z_maj,
+                                          pba->len_maj+1,
+                                          pba->T_maj,
+                                          pba->ddT_maj,
+                                          1,
+                                          z,
+                                          &last_index,
+                                          T_ncdm,
+                                          1,
+                                          pba->error_message),
+                 pba->error_message,
+                 pba->error_message);
+      class_call(array_interpolate_spline(
+                                          pba->z_maj,
+                                          pba->len_maj+1,
+                                          pba->Mu_maj,
+                                          pba->ddMu_maj,
+                                          1,
+                                          z,
+                                          &last_index,
+                                          mu_ncdm,
+                                          1,
+                                          pba->error_message),
+                 pba->error_message,
+                 pba->error_message);
+
+       // printf("nu: z %e T_ncdm %e mu_ncdm %e\n", z,T_ncdm,mu_ncdm);
+
+    }else{
+      /** - interpolate from pre-computed table with array_interpolate() */
+      class_call(array_interpolate_spline(
+                                          pba->z_maj,
+                                          pba->len_maj+1,
+                                          pba->T_nu,
+                                          pba->ddT_nu,
+                                          1,
+                                          z,
+                                          &last_index,
+                                          T_ncdm,
+                                          1,
+                                          pba->error_message),
+                 pba->error_message,
+                 pba->error_message);
+      class_call(array_interpolate_spline(
+                                          pba->z_maj,
+                                          pba->len_maj+1,
+                                          pba->Mu_nu,
+                                          pba->ddMu_nu,
+                                          1,
+                                          z,
+                                          &last_index,
+                                          mu_ncdm,
+                                          1,
+                                          pba->error_message),
+                 pba->error_message,
+                 pba->error_message);
+    }
+
+
+    // printf("maj: z %e T_ncdm %e mu_ncdm %e\n", z,T_ncdm,mu_ncdm);
+      // printf("good! eps %e forpsi_at_eps %e\n",eps, *forpsi_at_eps);
+
+  }else if(z > pba->z_maj[0]){
+        if(n_ncdm == pba->entry_is_M_phi){
+          *mu_ncdm = (pba->Mu_maj[0]-pba->m_ncdm_in_eV[n_ncdm])*(1+z)/(1+pba->z_maj[0]);
+          *T_ncdm = pba->T_maj[0]*(1+z)/(1+pba->z_maj[0]);
+        }
+        else{
+          *mu_ncdm = (pba->Mu_nu[0]-pba->m_ncdm_in_eV[n_ncdm])*(1+z)/(1+pba->z_maj[0]);
+          *T_ncdm = pba->T_nu[0]*(1+z)/(1+pba->z_maj[0]);
+        }
+  }
+  else{
+      if(n_ncdm == pba->entry_is_M_phi){
+        //assume relativistic:
+        *T_ncdm = pba->T_maj[pba->len_maj]*(1+z)/(1+pba->z_maj[pba->len_maj]);
+        *mu_ncdm = (pba->Mu_maj[pba->len_maj]-pba->m_ncdm_in_eV[n_ncdm])*(1+z)/(1+pba->z_maj[pba->len_maj]);
+        if(*T_ncdm < pba->m_ncdm_in_eV[n_ncdm]){
+          //check that we were correct.
+          *mu_ncdm = (pba->Mu_maj[pba->len_maj]-pba->m_ncdm_in_eV[n_ncdm])*pow((1+z)/(1+pba->z_maj[pba->len_maj]),2);
+          *T_ncdm = pba->T_maj[pba->len_maj]*pow((1+z)/(1+pba->z_maj[pba->len_maj]),2);
+        }
+
+    }else{
+      //assume relativistic:
+      *T_ncdm = pba->T_nu[pba->len_maj]*(1+z)/(1+pba->z_maj[pba->len_maj]);
+      *mu_ncdm = (pba->Mu_nu[pba->len_maj]-pba->m_ncdm_in_eV[n_ncdm])*(1+z)/(1+pba->z_maj[pba->len_maj]);
+      if(*T_ncdm < pba->m_ncdm_in_eV[n_ncdm]){
+        //check that we were correct.
+        *mu_ncdm = (pba->Mu_nu[pba->len_maj]-pba->m_ncdm_in_eV[n_ncdm])*pow((1+z)/(1+pba->z_maj[pba->len_maj]),2);
+        *T_ncdm = pba->T_nu[pba->len_maj]*pow((1+z)/(1+pba->z_maj[pba->len_maj]),2);
+      }
+    }
+  }
+
+  return _SUCCESS_;
+}
 /**
  * This function is only used for the purpose of finding optimal
  * quadrature weights. The logic is: if we can accurately convolve
@@ -1303,6 +1489,34 @@ int background_ncdm_test_function(
  */
 
 
+
+int interpolate_background_ncdm_distribution(struct background *pba, int n_ncdm, double z) {
+
+
+  int index_q;
+  struct background_parameters_for_distributions pbadist;
+  pbadist.pba = pba;
+  pbadist.n_ncdm = n_ncdm;
+  double f0;
+  // printf("pbadist.n_ncdm %d\n", pbadist.n_ncdm);
+  for(index_q = 0; index_q < pba->q_size_ncdm_bg[n_ncdm]; index_q++){
+    // printf("here pba->q_ncdm_bg[n_ncdm][index_q] %e !\n",pba->q_ncdm_bg[n_ncdm][index_q]);
+
+    class_call(background_ncdm_distribution(
+                                     &pbadist,
+                                     pba->q_ncdm_bg[n_ncdm][index_q],
+                                     &f0,
+                                     z),
+                 pba->error_message,
+                 pba->error_message);
+    // printf("f0 %e\n",f0);
+    pba->f_ncdm[n_ncdm][index_q]= f0;
+  }
+
+  return _SUCCESS_;
+
+}
+
 // SJW -- ADD HERE
 int background_ncdm_init(
                          struct precision *ppr,
@@ -1328,24 +1542,88 @@ int background_ncdm_init(
   class_alloc(pba->q_size_ncdm,sizeof(int)*pba->N_ncdm,pba->error_message);
   class_alloc(pba->q_size_ncdm_bg,sizeof(int)*pba->N_ncdm,pba->error_message);
   class_alloc(pba->factor_ncdm,sizeof(double)*pba->N_ncdm,pba->error_message);
-  
-  
+
+
+
    /// SJW -- Implimenting background functions....
    int test, lenIndx;
    //printf("At function... \n");
-   class_alloc(pba->z_maj, sizeof(double*)*1000,pba->error_message);
-   class_alloc(pba->T_maj, sizeof(double*)*1000,pba->error_message);
-   class_alloc(pba->T_nu, sizeof(double*)*1000,pba->error_message);
-   class_alloc(pba->Mu_maj, sizeof(double*)*1000,pba->error_message);
-   class_alloc(pba->Mu_nu, sizeof(double*)*1000,pba->error_message);
-   test = background_MB_approx(pba, &lenIndx);
-   pba->len_maj = lenIndx;
-    
-//    for (int ii=0; ii <= pba->len_maj; ii++){
-//        printf("HERE: %d \t %e \t %e \t %e \t %e \t %e \n", ii, pba->z_maj[ii], pba->T_maj[ii], pba->T_nu[ii], pba->Mu_maj[ii], pba->Mu_nu[ii]);
-//    }
-//    exit(0);
-//
+   if(pba->M_phi > 0){
+     //we do this if we have a majoron
+     class_alloc(pba->z_maj, sizeof(double*)*1000,pba->error_message);
+     class_alloc(pba->T_maj, sizeof(double*)*1000,pba->error_message);
+     class_alloc(pba->T_nu, sizeof(double*)*1000,pba->error_message);
+     class_alloc(pba->Mu_maj, sizeof(double*)*1000,pba->error_message);
+     class_alloc(pba->Mu_nu, sizeof(double*)*1000,pba->error_message);
+     //VP: add these tables for purpose of spline interpolation
+     class_alloc(pba->ddT_maj, sizeof(double*)*1000,pba->error_message);
+     class_alloc(pba->ddT_nu, sizeof(double*)*1000,pba->error_message);
+     class_alloc(pba->ddMu_maj, sizeof(double*)*1000,pba->error_message);
+     class_alloc(pba->ddMu_nu, sizeof(double*)*1000,pba->error_message);
+
+
+     test = background_MB_approx(pba, &lenIndx);
+     pba->len_maj = lenIndx;
+
+     //VP: once we know the size of the table, we can "realloc"; i.e. removes useless space in tables.
+     pba->z_maj = realloc(pba->z_maj, sizeof(double*)*(pba->len_maj+1));
+     pba->T_maj = realloc(pba->T_maj, sizeof(double*)*(pba->len_maj+1));
+     pba->T_nu = realloc(pba->T_nu, sizeof(double*)*(pba->len_maj+1));
+     pba->Mu_maj = realloc(pba->Mu_maj, sizeof(double*)*(pba->len_maj+1));
+     pba->Mu_nu = realloc(pba->Mu_nu, sizeof(double*)*(pba->len_maj+1));
+     pba->ddT_maj = realloc(pba->ddT_maj, sizeof(double*)*(pba->len_maj+1));
+     pba->ddT_nu = realloc(pba->ddT_nu, sizeof(double*)*(pba->len_maj+1));
+     pba->ddMu_maj = realloc(pba->ddMu_maj, sizeof(double*)*(pba->len_maj+1));
+     pba->ddMu_nu = realloc(pba->ddMu_nu, sizeof(double*)*(pba->len_maj+1));
+
+
+     //VP: getting ready to interpolate
+     class_call(array_spline_table_lines(pba->z_maj,
+                                         pba->len_maj+1,
+                                         pba->T_maj,
+                                         1,
+                                         pba->ddT_maj,
+                                         _SPLINE_EST_DERIV_,
+                                         pba->error_message),
+      pba->error_message,
+      pba->error_message);
+     class_call(array_spline_table_lines(pba->z_maj,
+                                         pba->len_maj+1,
+                                         pba->Mu_maj,
+                                         1,
+                                         pba->ddMu_maj,
+                                         _SPLINE_EST_DERIV_,
+                                         pba->error_message),
+      pba->error_message,
+      pba->error_message);
+     class_call(array_spline_table_lines(pba->z_maj,
+                                         pba->len_maj+1,
+                                         pba->Mu_nu,
+                                         1,
+                                         pba->ddMu_nu,
+                                         _SPLINE_EST_DERIV_,
+                                         pba->error_message),
+      pba->error_message,
+      pba->error_message);
+     class_call(array_spline_table_lines(pba->z_maj,
+                                         pba->len_maj+1,
+                                         pba->T_nu,
+                                         1,
+                                         pba->ddT_nu,
+                                         _SPLINE_EST_DERIV_,
+                                         pba->error_message),
+      pba->error_message,
+      pba->error_message);
+
+     //
+     //
+     // for (int ii=0; ii <= pba->len_maj; ii++){
+     //     printf("HERE: %d \t %e \t %e \t %e \t %e \t %e \n", ii, pba->z_maj[ii], pba->T_maj[ii], pba->T_nu[ii], pba->Mu_maj[ii], pba->Mu_nu[ii]);
+     // }
+     // exit(0);
+  //
+   }
+
 
   for(k=0, filenum=0; k<pba->N_ncdm; k++){
     pbadist.n_ncdm = k;
@@ -1418,7 +1696,7 @@ int background_ncdm_init(
       class_alloc(pba->q_ncdm_bg[k],_QUADRATURE_MAX_BG_*sizeof(double),pba->error_message);
       class_alloc(pba->w_ncdm_bg[k],_QUADRATURE_MAX_BG_*sizeof(double),pba->error_message);
 
-      printf("ppr->tol_ncdm_bg %e\n", ppr->tol_ncdm_bg);
+      // printf("ppr->tol_ncdm_bg %e\n", ppr->tol_ncdm_bg);
       class_call(get_qsampling(pba->q_ncdm_bg[k],
                                pba->w_ncdm_bg[k],
                                &(pba->q_size_ncdm_bg[k]),
@@ -1486,9 +1764,14 @@ int background_ncdm_init(
 
     for (index_q=0; index_q<pba->q_size_ncdm[k]; index_q++) {
       q = pba->q_ncdm[k][index_q];
-      class_call(background_ncdm_distribution(&pbadist,q,&f0),
+      class_call(background_ncdm_distribution(&pbadist,q,&f0,0),
                  pba->error_message,pba->error_message);
 
+      //we correct the integration weights if we deal with majorons
+      if(pba->M_phi>0){
+        pba->w_ncdm_bg[k][index_q] /= f0;
+        pba->w_ncdm[k][index_q] /= f0;
+      }
       //Loop to find appropriate dq:
       for(tolexp=_PSD_DERIVATIVE_EXP_MIN_; tolexp<_PSD_DERIVATIVE_EXP_MAX_; tolexp++){
 
@@ -1502,17 +1785,17 @@ int background_ncdm_init(
           dq = exp(tolexp)*(pba->q_ncdm[k][index_q+1]-pba->q_ncdm[k][index_q-1]);
         }
 
-        class_call(background_ncdm_distribution(&pbadist,q-2*dq,&f0m2),
+        class_call(background_ncdm_distribution(&pbadist,q-2*dq,&f0m2,0),
                    pba->error_message,pba->error_message);
-        class_call(background_ncdm_distribution(&pbadist,q+2*dq,&f0p2),
+        class_call(background_ncdm_distribution(&pbadist,q+2*dq,&f0p2,0),
                    pba->error_message,pba->error_message);
 
         if (fabs((f0p2-f0m2)/f0)>sqrt(ppr->smallest_allowed_variation)) break;
       }
 
-      class_call(background_ncdm_distribution(&pbadist,q-dq,&f0m1),
+      class_call(background_ncdm_distribution(&pbadist,q-dq,&f0m1,0),
                  pba->error_message,pba->error_message);
-      class_call(background_ncdm_distribution(&pbadist,q+dq,&f0p1),
+      class_call(background_ncdm_distribution(&pbadist,q+dq,&f0p1,0),
                  pba->error_message,pba->error_message);
       //5 point estimate of the derivative:
       df0dq = (+f0m2-8*f0m1+8*f0p1-f0p2)/12.0/dq;
@@ -1525,9 +1808,18 @@ int background_ncdm_init(
 
         pba->f_ncdm[k][index_q] = f0;
     }
+    if(pba->ncdm_background_distribution[k] == _fermi_dirac_){
+      pba->factor_ncdm[k]=pba->deg_ncdm[k]*4*_PI_*pow(pba->T_cmb*pba->T_ncdm[k]*_k_B_,4)*8*_PI_*_G_
+        /3./pow(_h_P_/2./_PI_,3)/pow(_c_,7)*_Mpc_over_m_*_Mpc_over_m_;//energy is in unit of T_ncdm
+    }else if(pba->ncdm_background_distribution[k] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[k] == _majoron_){
+      pba->factor_ncdm[k]=pba->deg_ncdm[k]*4*_PI_*pow(_eV_,4)*8*_PI_*_G_
+        /3./pow(_h_P_/2./_PI_,3)/pow(_c_,7)*_Mpc_over_m_*_Mpc_over_m_; //in this case, units are eV. we convert to Mpc.
+    }
 
-    pba->factor_ncdm[k]=pba->deg_ncdm[k]*4*_PI_*pow(pba->T_cmb*pba->T_ncdm[k]*_k_B_,4)*8*_PI_*_G_
-      /3./pow(_h_P_/2./_PI_,3)/pow(_c_,7)*_Mpc_over_m_*_Mpc_over_m_;
+
+    printf("old factor %e new factor %e \n", pba->deg_ncdm[k]*4*_PI_*pow(pba->T_cmb*pba->T_ncdm[k]*_k_B_,4)*8*_PI_*_G_
+      /3./pow(_h_P_/2./_PI_,3)/pow(_c_,7)*_Mpc_over_m_*_Mpc_over_m_,pba->factor_ncdm[k]);
+
 
     /* If allocated, deallocate interpolation table:  */
     if ((pba->got_files!=NULL)&&(pba->got_files[k]==_TRUE_)){
@@ -1565,10 +1857,13 @@ int background_ncdm_momenta(
                             /* Only calculate for non-NULL pointers: */
                             double * qvec,
                             double * wvec,
+                            double *fvec,
                             int qsize,
                             double M,
+                            double qmax,
                             double factor,
                             double z,
+                            int n_ncdm,
                             double * n,
                             double * rho, // density
                             double * p,   // pressure
@@ -1596,23 +1891,29 @@ int background_ncdm_momenta(
   for (index_q=0; index_q<qsize; index_q++) {
 
     /* squared momentum */
-    q2 = qvec[index_q]*qvec[index_q];
+    q2 = qvec[index_q]*qvec[index_q]*qmax*qmax;
 
-    /* energy */
     epsilon = sqrt(q2+M*M/(1.+z)/(1.+z));
 
+    // printf("q2 %e, epsilon %e wvec[index_q] %e fvec[index_q] %e\n", q2,epsilon,wvec[index_q],fvec[index_q]);
     /* integrand of the various quantities */
-    if (n!=NULL) *n += q2*wvec[index_q];
-    if (rho!=NULL) *rho += q2*epsilon*wvec[index_q];
-    if (p!=NULL) *p += q2*q2/3./epsilon*wvec[index_q];
-    if (drho_dM!=NULL) *drho_dM += q2*M/(1.+z)/(1.+z)/epsilon*wvec[index_q];
-    if (pseudo_p!=NULL) *pseudo_p += pow(q2/epsilon,3)/3.0*wvec[index_q];
+    if (n!=NULL) *n += q2*wvec[index_q]*qmax*fvec[index_q];
+    if (rho!=NULL) *rho += q2*epsilon*wvec[index_q]*qmax*fvec[index_q];
+    if (p!=NULL) *p += q2*q2/3./epsilon*wvec[index_q]*qmax*fvec[index_q];
+    if (drho_dM!=NULL) *drho_dM += q2*M/(1.+z)/(1.+z)/epsilon*wvec[index_q]*qmax*fvec[index_q];
+    if (pseudo_p!=NULL) *pseudo_p += pow(q2/epsilon,3)/3.0*wvec[index_q]*qmax*fvec[index_q];
   }
 
   /** - adjust normalization */
   if (n!=NULL) *n *= factor2/(1.+z);
-  if (rho!=NULL) *rho *= factor2;
-  if (p!=NULL) *p *= factor2;
+  if (rho!=NULL) {
+    *rho *= factor2;
+    // printf("z %e rho %e factor2 %e\n", z,*rho,factor2);
+  }
+  if (p!=NULL) {
+    *p *= factor2;
+    // printf("z%e p %e factor2 %e\n", z, *p, factor2);
+  }
   if (drho_dM!=NULL) *drho_dM *= factor2;
   if (pseudo_p!=NULL) *pseudo_p *=factor2;
 
@@ -1633,18 +1934,42 @@ int background_ncdm_M_from_Omega(
                                  struct background *pba,
                                  int n_ncdm
                                  ) {
-  double rho0,rho,n,M,deltaM,drhodM;
+  double rho0,rho,n,M,deltaM,drhodM, T_ncdm, mu_ncdm,qmax;
   int iter,maxiter=50;
+  int index_q;
 
   rho0 = pba->H0*pba->H0*pba->Omega0_ncdm[n_ncdm]; /*Remember that rho is defined such that H^2=sum(rho_i) */
   M = 0.0;
 
+  if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
+    class_call(interpolate_background_ncdm_distribution(pba,n_ncdm,0),
+    pba->error_message,
+    pba->error_message);
+    class_call(interpolate_T_and_mu_at_z(pba,n_ncdm,0,&T_ncdm,&mu_ncdm),
+    pba->error_message,
+    pba->error_message);
+    if(20*T_ncdm > 3 *M){
+      qmax = pow(20*20*T_ncdm*T_ncdm-(M*M),0.5)/pba->ncdm_qmax[n_ncdm];
+    }else{
+      qmax = pow(8*M*M,0.5)/pba->ncdm_qmax[n_ncdm];
+    }
+  }else{
+    for(index_q = 0; index_q < pba->q_size_ncdm[n_ncdm]; index_q++){
+    pba->f_ncdm[n_ncdm][index_q] = 1;//f_ncdm is already included in w_ncdm_bg in the case of standard neutrinos.
+    }
+    qmax=1;
+  }
+
+
   background_ncdm_momenta(pba->q_ncdm_bg[n_ncdm],
                           pba->w_ncdm_bg[n_ncdm],
+                          pba->f_ncdm[n_ncdm],
                           pba->q_size_ncdm_bg[n_ncdm],
                           M,
+                          qmax,
                           pba->factor_ncdm[n_ncdm],
                           0.,
+                          n_ncdm,
                           &n,
                           &rho,
                           NULL,
@@ -1660,13 +1985,37 @@ int background_ncdm_M_from_Omega(
   M = rho0/n; /* This is our guess for M. */
   for (iter=1; iter<=maxiter; iter++){
 
+    if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
+      class_call(interpolate_background_ncdm_distribution(pba,n_ncdm,0),
+      pba->error_message,
+      pba->error_message);
+      class_call(interpolate_T_and_mu_at_z(pba,n_ncdm,0,&T_ncdm,&mu_ncdm),
+      pba->error_message,
+      pba->error_message);
+      if(20*T_ncdm > 3 *M){
+        qmax = pow(20*20*T_ncdm*T_ncdm-(M*M),0.5)/pba->ncdm_qmax[n_ncdm];
+      }else{
+        qmax = pow(8*M*M,0.5)/pba->ncdm_qmax[n_ncdm];
+      }
+      //need to check units of M.
+    }else{
+      for(index_q = 0; index_q < pba->q_size_ncdm[n_ncdm]; index_q++){
+      pba->f_ncdm[n_ncdm][index_q] = 1;//f_ncdm is already included in w_ncdm_bg in the case of standard neutrinos.
+      }
+      qmax =1;
+    }
+
+
     /* Newton iteration. First get relevant quantities at M: */
     background_ncdm_momenta(pba->q_ncdm_bg[n_ncdm],
                             pba->w_ncdm_bg[n_ncdm],
+                            pba->f_ncdm[n_ncdm],
                             pba->q_size_ncdm_bg[n_ncdm],
                             M,
+                            qmax,
                             pba->factor_ncdm[n_ncdm],
                             0.,
+                            n_ncdm,
                             NULL,
                             &rho,
                             NULL,
@@ -1728,7 +2077,7 @@ int background_solve(
   int last_index=0;
   /* comoving radius coordinate in Mpc (equal to conformal distance in flat case) */
   double comoving_radius=0.;
-  
+
   int lenIndx;
 
   bpaw.pba = pba;
@@ -1873,7 +2222,7 @@ int background_solve(
   class_alloc(pba->d2background_dtau2_table,pba->bt_size * pba->bg_size * sizeof(double),pba->error_message);
 
   /** - In a loop over lines, fill background table using the result of the integration plus background_functions() */
-  
+
   for (i=0; i < pba->bt_size; i++) {
 
     /* -> establish correspondence between the integrated variable and the bg variables */
@@ -1899,9 +2248,9 @@ int background_solve(
 
     /* -> compute all other quantities depending only on {B} variables.
        The value of {B} variables in pData are also copied to pvecback.*/
-      
 
-    
+
+
     class_call(background_functions(pba,pData+i*pba->bi_size, pba->long_info, pvecback),
                pba->error_message,
                pba->error_message);
@@ -1919,9 +2268,9 @@ int background_solve(
     class_test(memcopy_result != pba->background_table + i*pba->bg_size,
                pba->error_message,
                "cannot copy data back to pba->background_table");
-      
+
   }
-    
+
 
   /** - free the growTable with gt_free() */
 
@@ -2032,8 +2381,8 @@ int background_initial_conditions(
   double a;
 
   double rho_ncdm, p_ncdm, rho_ncdm_rel_tot=0.;
-  double f,Omega_rad, rho_rad;
-  int counter,is_early_enough,n_ncdm;
+  double f,Omega_rad, rho_rad,T_ncdm,mu_ncdm, M, qmax;
+  int counter,is_early_enough,n_ncdm,index_q;
   double scf_lambda;
   double rho_fld_today;
   double w_fld,dw_over_da_fld,integral_fld;
@@ -2055,12 +2404,38 @@ int background_initial_conditions(
 
       for (n_ncdm=0; n_ncdm<pba->N_ncdm; n_ncdm++) {
 
+        if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
+          class_call(interpolate_background_ncdm_distribution(pba,n_ncdm,1./a-1.),
+          pba->error_message,
+          pba->error_message);
+          class_call(interpolate_T_and_mu_at_z(pba,n_ncdm,1./a-1.,&T_ncdm,&mu_ncdm),
+          pba->error_message,
+          pba->error_message);
+          M = pba->m_ncdm_in_eV[n_ncdm];
+          if(20*T_ncdm > 3 *M){
+            qmax = pow(20*20*T_ncdm*T_ncdm-(M*M),0.5)*a/pba->ncdm_qmax[n_ncdm];
+          }else{
+            qmax = pow(8*M*M,0.5)*a/pba->ncdm_qmax[n_ncdm];
+          }
+        }else{
+          for(index_q = 0; index_q < pba->q_size_ncdm[n_ncdm]; index_q++){
+          pba->f_ncdm[n_ncdm][index_q] = 1;//f_ncdm is already included in w_ncdm_bg in the case of standard neutrinos.
+          }
+          M = pba->M_ncdm[n_ncdm];
+          qmax = 1;
+        }
+
+
+
         class_call(background_ncdm_momenta(pba->q_ncdm_bg[n_ncdm],
                                            pba->w_ncdm_bg[n_ncdm],
+                                           pba->f_ncdm[n_ncdm],
                                            pba->q_size_ncdm_bg[n_ncdm],
-                                           pba->M_ncdm[n_ncdm],
+                                           M,
+                                           qmax,
                                            pba->factor_ncdm[n_ncdm],
                                            pba->a_today/a-1.0,
+                                           n_ncdm,
                                            NULL,
                                            &rho_ncdm,
                                            &p_ncdm,
@@ -2069,6 +2444,7 @@ int background_initial_conditions(
                    pba->error_message,
                    pba->error_message);
         rho_ncdm_rel_tot += 3.*p_ncdm;
+        // printf("n_ncdm %d p_ncdm/rho_ncdm %e\n",n_ncdm,p_ncdm/rho_ncdm);
         if (fabs(p_ncdm/rho_ncdm-1./3.)>ppr->tol_ncdm_initial_w)
           is_early_enough = _FALSE_;
       }
@@ -2179,7 +2555,7 @@ int background_initial_conditions(
 
   /* Infer pvecback from pvecback_integration */
 
-  
+
   class_call(background_functions(pba, pvecback_integration, pba->normal_info, pvecback),
              pba->error_message,
              pba->error_message);
@@ -2325,6 +2701,12 @@ int background_output_titles(struct background * pba,
       class_store_columntitle(titles,tmp,_TRUE_);
       sprintf(tmp,"(.)p_ncdm[%d]",n);
       class_store_columntitle(titles,tmp,_TRUE_);
+      sprintf(tmp,"(.)pseudo_p_ncdm[%d]",n);
+      class_store_columntitle(titles,tmp,_TRUE_);
+      sprintf(tmp,"(.)T_ncdm[%d]",n);
+      class_store_columntitle(titles,tmp,_TRUE_);
+      sprintf(tmp,"(.)mu_ncdm[%d]",n);
+      class_store_columntitle(titles,tmp,_TRUE_);
     }
   }
   class_store_columntitle(titles,"(.)rho_lambda",pba->has_lambda);
@@ -2384,6 +2766,9 @@ int background_output_data(
       for (n=0; n<pba->N_ncdm; n++){
         class_store_double(dataptr,pvecback[pba->index_bg_rho_ncdm1+n],_TRUE_,storeidx);
         class_store_double(dataptr,pvecback[pba->index_bg_p_ncdm1+n],_TRUE_,storeidx);
+        class_store_double(dataptr,pvecback[pba->index_bg_pseudo_p_ncdm1+n],_TRUE_,storeidx);
+        class_store_double(dataptr,pvecback[pba->index_bg_T_ncdm1+n],_TRUE_,storeidx);
+        class_store_double(dataptr,pvecback[pba->index_bg_Mu_ncdm1+n],_TRUE_,storeidx);
       }
     }
     class_store_double(dataptr,pvecback[pba->index_bg_rho_lambda],pba->has_lambda,storeidx);
@@ -2781,16 +3166,16 @@ int background_MB_approx(
   bool lower_sve_indx=false, shrinkDT=false, stop_loop=false, linearMu=false, linearMuN=false, linearT=false;
   int numT=500000, sve_indx=100;
   *lenIndx=0;
-  
+
   GammaPhi = pba->Gamma_phi[0]; // Not yet generalized to deal with multiple neutrinos....
   for (int n_ncdm=0; n_ncdm < pba->N_ncdm; n_ncdm++) {
         if(pba->ncdm_background_distribution[n_ncdm]==_majoron_){mMaj = pba->m_ncdm_in_eV[n_ncdm];}
         else{Mnu = pba->m_ncdm_in_eV[n_ncdm];}
   }
-  
+
   GammaEff = pba->Gamma_eff_ncdmphi[0];
   if (GammaEff > 1e1) { GammaPhi = GammaPhi * 10. / GammaEff;}
-  
+
   ThreshJump = mMaj * 2.;
   zstart = 100. * mMaj / (pba->T_cmb * 8.6e-5) *  1.39578 - 1;
   zend = mMaj / (pba->T_cmb * 8.6e-5) - 1.;
@@ -2805,10 +3190,10 @@ int background_MB_approx(
   muMstore = - 10. * TMstore; // eV
   H_preF = 8.*_PI_/3. * 6.707e-57; // eV^-2
   indx = 0;
-  
+
   while (!stop_loop){
     indx+=1;
-      
+
     if ((TcmbStore < ThreshJump)&&(!shrinkDT)){
     delT /= 10.;
     if (ThreshJump == mMaj){
@@ -2817,7 +3202,7 @@ int background_MB_approx(
     else {shrinkDT=true;}
     }
 
-    
+
     // evaluated at z_n -- get k_1
     tmajH = TMstore;
     tnuH = TNstore;
@@ -2825,7 +3210,7 @@ int background_MB_approx(
     muNh = muNstore;
     tcur = TcmbStore;
     zhold = zstore;
-    
+
     worked = RK_Eval(pba, GammaPhi, zhold, tmajH, tnuH, muMh, muNh, mMaj, tcur, Mnu, k1);
     if (linearMu) {k1[2] *= muMh;}
     if (linearMuN) {k1[3] *= muNh;}
@@ -2841,16 +3226,16 @@ int background_MB_approx(
     else {muMh = muMstore +  delT * k1[2] / 2;}
     if (!linearMuN) {muNh = -exp(log(-muNstore)  + delT * k1[3] / 2);}
     else {muNh = muNstore +  delT * k1[3] / 2;}
-    
+
     tcur = TcmbStore + delT * k1[4] / 2;
     zhold = zstore + delT / 2.;
-    
+
     worked = RK_Eval(pba, GammaPhi, zhold, tmajH, tnuH, muMh, muNh, mMaj, tcur, Mnu, k2);
     if (linearMu) {k2[2] *= muMh;}
     if (linearMuN) {k2[3] *= muNh;}
     //if (linearT) {k2[0] *= tmajH;}
     //printf("K2: %e \t %e \t %e \t %e \t %e \n", k2[0], k2[1], k2[2], k2[3], k2[4]);
-  
+
     // get k_3, f(z + h/2, y + h k_2/2)
     //tmajH = exp(log(TMstore) + delT * k2[0] / 2);
     if (!linearT) {tmajH = exp(log(TMstore) + delT * k2[0] / 2);}
@@ -2860,16 +3245,16 @@ int background_MB_approx(
     else {muMh = muMstore +  delT * k2[2] / 2;}
     if (!linearMuN) {muNh = -exp(log(-muNstore)  + delT * k2[3] / 2);}
     else {muNh = muNstore +  delT * k2[3] / 2;}
-    
+
     tcur = TcmbStore + delT * k2[4] / 2;
     zhold = zstore + delT / 2.;
-    
+
     worked = RK_Eval(pba, GammaPhi, zhold, tmajH, tnuH, muMh, muNh, mMaj, tcur, Mnu, k3);
     if (linearMu) {k3[2] *= muMh;}
     if (linearMuN) {k3[3] *= muNh;}
     //if (linearT) {k3[0] *= tmajH;}
     //printf("K3: %e \t %e \t %e \t %e \t %e \n", k3[0], k3[1], k3[2], k3[3], k3[4]);
-    
+
     // get k_4, f(z + h, y + h k_3)
     //tmajH = exp(log(TMstore) + delT * k3[0]);
     if (!linearT) {tmajH = exp(log(TMstore) + delT * k3[0]);}
@@ -2879,7 +3264,7 @@ int background_MB_approx(
     else {muMh = muMstore +  delT * k3[2];}
     if (!linearMu) {muNh = -exp(log(-muNstore)  + delT * k3[3]);}
     else {muNh = muNstore +  delT * k3[3];}
-    
+
     tcur = TcmbStore  + delT * k3[4];
     zhold = zstore + delT;
     worked = RK_Eval(pba, GammaPhi, zhold, tmajH, tnuH, muMh, muNh, mMaj, tcur, Mnu, k4);
@@ -2887,8 +3272,8 @@ int background_MB_approx(
     if (linearMuN) {k4[3] *= muNh;}
     //if (linearT) {k4[0] *= tmajH;}
     //printf("K4: %e \t %e \t %e \t %e \t %e \n", k4[0], k4[1], k4[2], k4[3], k4[4]);
-    
-    
+
+
     // Fill new variables
     if (!linearT) {TMstore = exp(log(TMstore) + delT / 6. * (k1[0] + 2. * (k2[0] + k3[0]) + k4[0]));}
     else {TMstore = TMstore +  delT / 6. * (k1[0] + 2. * (k2[0] + k3[0]) + k4[0]);}
@@ -2896,25 +3281,25 @@ int background_MB_approx(
     else {muMstore = muMstore +  delT / 6. * (k1[2] + 2. * (k2[2] + k3[2]) + k4[2]);}
     if (!linearMuN) {muNstore = -exp(log(-muNstore) + delT / 6. * (k1[3] + 2. * (k2[3] + k3[3]) + k4[3]));}
     else {muNstore = muNstore +  delT / 6. * (k1[3] + 2. * (k2[3] + k3[3]) + k4[3]);}
-    
+
     TNstore = exp(log(TNstore) + delT / 6. * (k1[1] + 2. * (k2[1] + k3[1]) + k4[1]));
     TcmbStore = TcmbStore + delT / 6. * (k1[4] + 2. * (k2[4] + k3[4]) + k4[4]);
     zstore = zstore + delT;
-    
+
     if ((!linearMu) && (muMstore > -5e-3) ){
     //printf("Switching to linear.... \t %e \n", muMstore);
     linearMu = true;
 //    linearT = true;
     }
     if ((!linearMuN) && (fabs(muNstore) < 1e-4) ){linearMuN = true;    }
-    
-      
+
+
     if (!isfinite(TMstore)||!isfinite(TNstore)||!isfinite(muNstore)){
         //printf("Failure.... Nans or infs appearing... \n");
         //printf("%e \t %e \t %e \n", TMstore, TNstore, muNstore);
         break;
     }
-    
+
 
     if (!lower_sve_indx&&(TcmbStore < 0.8 * mMaj)) {
     sve_indx = 5;
@@ -2928,7 +3313,7 @@ int background_MB_approx(
         muNh = muNstore;
         tcur = TcmbStore;
         zhold = zstore;
-    
+
         h_cmb = pow(_PI_, 2) / 15. * pow(tcur, 4); // energy density in ev^4
         h_mat = (pba->Omega0_b + pba->Omega0_cdm) * pow((1. + zhold), 3) * 8.0835e-11 * pow(2.998e10 * 6.58e-16, 3) * pow(pba->h, 2); // eV^4
 
@@ -2956,7 +3341,7 @@ int background_MB_approx(
             trap1 =  pow(ehold1*ehold1 - mMaj*mMaj, 1.5) /  ( exp((ehold1 - muMh) / tmajH) - 1.) ;
             presMaj += degMaj * 0.5 * sigSt * (trap0 + trap1) / (6. * _PI_ * _PI_);
         }
-        
+
         maxBndNu = 20. * tnuH;
         if (maxBndNu < (10 * Mnu)){maxBndNu=10*Mnu;}
         nNu = 0.;
@@ -2981,7 +3366,7 @@ int background_MB_approx(
             trap1 =   pow(ehold1*ehold1 - Mnu*Mnu, 1.5) /  ( exp((sqrt(ehold1*ehold1 - Mnu*Mnu) - muNh) / tnuH) + 1.) / (6. * _PI_ * _PI_);
             presNu += 0.5 * sigSt * (trap0 + trap1);
         }
-       
+
         neff = (degNu * rhoNu + rhoMaj) / h_cmb * (8./7.) * pow(11./4., 4./3.)  ;
         //printf("indx: %d \t z: %e \t Tcmb: %e \t RhoM/RhoN: %e \t Neff: %e \n", *lenIndx, zstore, TcmbStore, rhoMaj/ (degNu * rhoNu), neff );
         if ((rhoMaj / (degNu * rhoNu) < 1e-6)&&(TcmbStore < mMaj)){break;}
@@ -2990,7 +3375,7 @@ int background_MB_approx(
         else {
         if (*lenIndx < 1){delT *= 4;};}
 
-        
+
         pba->z_maj[*lenIndx] = zstore;
         pba->T_maj[*lenIndx] = TMstore;
         pba->T_nu[*lenIndx] = TNstore;
@@ -3001,24 +3386,24 @@ int background_MB_approx(
         //rho_nu[*lenIndx] = degNu * rhoNu;
         //press_maj[*lenIndx] = presMaj;
         //press_nu[*lenIndx] = degNu * presNu;
-        
+
         *lenIndx+=1;
     }
     //printf("indx: %d \t z: %e \t Tcmb: %e \t Tnu: %e \t Tmaj: %e \t Munu: %e \t MuMaj: %e \n", indx, zstore,  TcmbStore, TNstore, TMstore, muNstore, muMstore);
-    
+
     if (TcmbStore < (0.01 * mMaj) ) {
     //printf("Sucessful Finish... \n");
         stop_loop = true;}
-    
+
   }
-    
+
     *lenIndx -= 1;
 //    z_maj[lenIndx] = zhold;
 //    rho_maj[lenIndx] = rho_maj[lenIndx - 1] * 1e-3;
 //    rho_nu[lenIndx] = rho_nu[lenIndx - 1] + rho_maj[lenIndx - 1];
 //    press_maj[lenIndx] = press_maj[lenIndx - 1] * 1e-3;
 //    press_nu[lenIndx] = press_nu[lenIndx - 1];
-    
+
   return _SUCCESS_;
 }
 
@@ -3032,15 +3417,15 @@ int RK_Eval(struct background *pba, double GammaPhi, double zhold, double tmajH,
     double h_cmb, h_mat, holdCT, degNu=6, degMaj=1, Hub;
     int sigP=100;
     bool mu_off= false;
-    
+
 //    if (fabs(muMh) < fabs(minMuChP)){muMh = minMuChP;}
 //    if (!isfinite(muMh)||(muMh>=minMuChP)) {muMh = minMuChP;}
 //    if (!isfinite(muNh)||(muNh>=minCHP)) {muNh = minCHP;}
 //    if (!isfinite(tmajH)||(tmajH <= minMT)) {tmajH = minMT;}
 //    checkRat = fabs(muMh / tmajH);
     //if (fabs(muMh / tmajH) > 40.) {muMh /= 2.;}
-    
-    
+
+
     h_cmb = pow(_PI_, 2.) / 15. * pow(tcur, 4.); // energy density in ev^4
     h_mat = (pba->Omega0_b + pba->Omega0_cdm) * pow((1. + zhold), 3) * 8.0835e-11 * pow(2.998e10 * 6.58e-16, 3) * pow(pba->h, 2); // eV^4
 
@@ -3111,7 +3496,7 @@ int RK_Eval(struct background *pba, double GammaPhi, double zhold, double tmajH,
     if (isnan(drhophidt)){drhophidt = 0.;}
     if (!isfinite(rhoMaj)){rhoMaj = 0.;}
     if (!isfinite(nMaj)){nMaj = 0.;}
-    
+
     drhoNudt = -drhophidt / 6.;
     dnNudt = -2.*dnphidt / 6.;
 
@@ -3153,14 +3538,14 @@ int RK_Eval(struct background *pba, double GammaPhi, double zhold, double tmajH,
         drNdmu += 0.5 * sigSt * (trap0 + trap1) / (2. * _PI_ * _PI_);
     }
     Hub = sqrt( H_preF * (degNu * rhoNu + rhoMaj + h_mat + h_cmb)) ; // eV
-    
+
     k[2] = -(3*((presMaj + rhoMaj) * dnPdT - nMaj * drPdT) - (dnPdT * drhophidt - drPdT * dnphidt) / Hub) / (dnPdmu * drPdT - dnPdT * drPdmu) / (1. + zhold) / muMh;
     k[0] = (3*((presMaj + rhoMaj) * dnPdmu - nMaj * drPdmu) - (dnPdmu * drhophidt - drPdmu * dnphidt) / Hub) / (dnPdmu * drPdT - dnPdT * drPdmu) / (1. + zhold) / tmajH;
     k[1] = (3*((presNu + rhoNu) * dnNdmu - nNu * drNdmu) - (dnNdmu * drhoNudt - drNdmu * dnNudt) / Hub) / (dnNdmu * drNdT - dnNdT * drNdmu) / (1. + zhold) / tnuH;
     k[3] = -(3*((presNu + rhoNu) * dnNdT - nNu * drNdT) - (dnNdT * drhoNudt - drNdT * dnNudt) / Hub) / (dnNdmu * drNdT - dnNdT * drNdmu) / (1. + zhold) / muNh;
     k[4] = tcur / (1. + zhold);
     //printf("Check: %e \t %e \t %e \t %e \t %e \n", tmajH, muMh, rhoMaj, nMaj,presMaj);
-    
+
     return _SUCCESS_; }
 
 double bessk( int n, double x )
@@ -3381,7 +3766,7 @@ Use:          #include "bessel.h"
               n        Integer order of Bessel function.
               x        Double at which the function is evaluated.
 
- 
+
 Description:  bessj evaluates at x the Bessel function of the first kind
               and of integer order n.
               This routine is NOT callable in FORTRAN.
@@ -3412,7 +3797,7 @@ double bessj( int n, double x )
       return( bessj0(ax) );
    if (n == 1)
       return( bessj1(ax) );
-    
+
 
    if (ax == 0.0)
       return 0.0;
@@ -3464,7 +3849,7 @@ double bessi( int n, double x)
    if (n < 0)
    {
       double   dblank;
-      
+
       return( 0. );
    }
    if (n == 0)
@@ -3494,5 +3879,3 @@ double bessi( int n, double x)
       return  x < 0.0 && n%2 == 1 ? -ans : ans;
    }
 }
-
-

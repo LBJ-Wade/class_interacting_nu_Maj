@@ -617,7 +617,7 @@ int input_read_parameters(
 
   int flag1,flag2,flag3;
   double param1,param2,param3;
-  int N_ncdm=0,n,entries_read;
+  int N_ncdm=0,n,entries_read,index_q;
   int int1,fileentries;
   double scf_lambda;
   double fnu_factor;
@@ -644,7 +644,7 @@ int input_read_parameters(
 
   double sigma_B; /* Stefan-Boltzmann constant in \f$ W/m^2/K^4 = Kg/K^4/s^3 \f$*/
 
-  double rho_ncdm;
+  double rho_ncdm, T_ncdm,mu_ncdm,M,qmax;
   double R0,R1,R2,R3,R4;
   double PSR0,PSR1,PSR2,PSR3,PSR4;
   double HSR0,HSR1,HSR2,HSR3,HSR4;
@@ -1147,7 +1147,7 @@ int input_read_parameters(
       pba->entry_is_M_phi = N_ncdm-1;
       class_test(pba->entry_is_M_phi == 0,errmsg,"weird, it seems you have N_ncdm =1 but you want to run with neutrinos and majorons. go fix your ini file!");
       pba->M_phi = pba->m_ncdm_in_eV[pba->entry_is_M_phi];
-      printf("pba->entry_is_M_phi %d pba->M_phi %e\n", pba->entry_is_M_phi,pba->M_phi);
+      // printf("pba->entry_is_M_phi %d pba->M_phi %e\n", pba->entry_is_M_phi,pba->M_phi);
     }
     else{
       pba->M_phi = 0.0;
@@ -1245,16 +1245,42 @@ int input_read_parameters(
     for (n=0; n < N_ncdm; n++){
       if (pba->m_ncdm_in_eV[n] != 0.0){
         /* Case of only mass or mass and Omega/omega: */
-        pba->M_ncdm[n] = pba->m_ncdm_in_eV[n]/_k_B_*_eV_/pba->T_ncdm[n]/pba->T_cmb;
+        pba->M_ncdm[n] = pba->m_ncdm_in_eV[n]/_k_B_*_eV_/pba->T_ncdm[n]/pba->T_cmb; //nb in the case of majoron and interacting neutrinos this renomarlization is not useful. we set T to 1/Tcmb.
         // if(n == pba->entry_is_M_phi){
         //   pba->M_phi = pba->M_phi/_k_B_*_eV_/pba->T_ncdm[n]/pba->T_cmb;
         // }
+        if(pba->M_phi > 0){
+          //evaluate f today
+          printf("about to call in input %d %e\n",n,pba->m_ncdm_in_eV[n]);
+          class_call(interpolate_background_ncdm_distribution(pba,n,0),
+          pba->error_message,
+          pba->error_message);
+          class_call(interpolate_T_and_mu_at_z(pba,n,0,&T_ncdm,&mu_ncdm),
+          pba->error_message,
+          pba->error_message);
+          M = pba->m_ncdm_in_eV[n];
+          if(20*T_ncdm > 3 *M){
+            qmax = pow(20*20*T_ncdm*T_ncdm-(M*M),0.5)/pba->ncdm_qmax[n];
+          }else{
+            qmax = pow(8*M*M,0.5)/pba->ncdm_qmax[n];
+          }
+        }else{
+          for(index_q = 0; index_q < pba->q_size_ncdm[n]; index_q++){
+          pba->f_ncdm[n][index_q] = 1;//f_ncdm is already included in w_ncdm_bg in the case of standard neutrinos.
+          }
+          M = pba->M_ncdm[n];
+          qmax=1;
+        }
+
         class_call(background_ncdm_momenta(pba->q_ncdm_bg[n],
                                            pba->w_ncdm_bg[n],
+                                           pba->f_ncdm[n],
                                            pba->q_size_ncdm_bg[n],
-                                           pba->M_ncdm[n],
+                                           M,
+                                           qmax,
                                            pba->factor_ncdm[n],
                                            0.,
+                                           n,
                                            NULL,
                                            &rho_ncdm,
                                            NULL,

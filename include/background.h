@@ -215,7 +215,7 @@ struct background
   int index_bg_p_ncdm1;       /**< pressure of first ncdm species (others contiguous) */
   int index_bg_pseudo_p_ncdm1;/**< another statistical momentum useful in ncdma approximation */
   int index_bg_T_ncdm1;     /**< density of first ncdm species (others contiguous) */
-  int index_bg_MU_ncdm1;     /**< density of first ncdm species (others contiguous) */
+  int index_bg_Mu_ncdm1;     /**< density of first ncdm species (others contiguous) */
 
   int index_bg_rho_tot;       /**< Total density */
   int index_bg_p_tot;         /**< Total pressure */
@@ -336,13 +336,17 @@ struct background
   int * q_size_ncdm_bg; /**< Size of the q_ncdm_bg arrays */
   int * q_size_ncdm;    /**< Size of the q_ncdm arrays */
   double * factor_ncdm; /**< List of normalization factors for calculating energy density etc.*/
-  
+
   // SJW
   double * z_maj; /**/
   double * T_maj; /**/
   double * T_nu; /**/
   double * Mu_maj; /**/
   double * Mu_nu; /**/
+  double * ddT_maj; /**/
+  double * ddT_nu; /**/
+  double * ddMu_maj; /**/
+  double * ddMu_nu; /**/
   int len_maj; /**/
 
   //@}
@@ -476,7 +480,8 @@ extern "C" {
   int background_ncdm_distribution(
 				  void *pba,
 				  double q,
-				  double * f0
+				  double * f0,
+          double z
 				  );
 
   int background_ncdm_test_function(
@@ -494,15 +499,18 @@ extern "C" {
   int background_ncdm_momenta(
                              double * qvec,
                              double * wvec,
+                             double * fvec,
                              int qsize,
                              double M,
+                             double qmax,
                              double factor,
                              double z,
+                             int n_ncdm,
                              double * n,
-		             double * rho,
+		                         double * rho,
                              double * p,
                              double * drho_dM,
-			     double * pseudo_p
+			                       double * pseudo_p
                              );
 
   int background_ncdm_M_from_Omega(
@@ -545,6 +553,8 @@ extern "C" {
 			 ErrorMsg error_message
 			 );
 // SJW
+ int interpolate_T_and_mu_at_z(struct background *pba,int n_ncdm,double z,double *T_ncdm, double *mu_ncdm);
+ int interpolate_background_ncdm_distribution(struct background *pba, int n_ncdm, double z);
  int background_MB_approx(struct background *pba, int *lenIndx);
  int RK_Eval(struct background *pba, double GammaPhi, double zhold, double tmajH, double tnuH, double muMh, double muNh, double mMaj, double tcur, double mNu, double k[5]);
  double bessk( int n, double x );

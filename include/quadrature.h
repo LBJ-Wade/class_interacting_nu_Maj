@@ -38,7 +38,7 @@ typedef struct adaptive_integration_tree_node{
 			double *qvec,
 			int qsiz,
 			int (*test)(void * params_for_function, double q, double *psi),
-			int (*function)(void * params_for_function, double q, double *f0),
+			int (*function)(void * params_for_function, double q, double *f0, double z),
 			void * params_for_function,
 			ErrorMsg errmsg);
        int get_qsampling_manual(double *x,
@@ -48,7 +48,7 @@ typedef struct adaptive_integration_tree_node{
 				enum ncdm_quadrature_method method,
 				double *qvec,
 				int qsiz,
-				int (*function)(void * params_for_function, double q, double *f0),
+				int (*function)(void * params_for_function, double q, double *f0, double z),
 				void * params_for_function,
 				ErrorMsg errmsg);
 
@@ -61,7 +61,7 @@ typedef struct adaptive_integration_tree_node{
       int gk_adapt(
 		   qss_node **node,
 		   int (*test)(void * params_for_function, double q, double *psi),
-		   int (*function)(void * params_for_function, double q, double *f0),
+		   int (*function)(void * params_for_function, double q, double *f0, double z),
 		   void * params_for_function,
 		   double tol,
 		   int treemode,
@@ -72,7 +72,7 @@ typedef struct adaptive_integration_tree_node{
       int compute_Hermite(double *x, double *w, int N, int alpha, double *b, double *c);
       int compute_Laguerre(double *x, double *w, int N, double alpha, double *b, double *c, int totalweight);
       int gk_quad(int (*test)(void * params_for_function, double q, double *psi),
-		  int (*function)(void * params_for_function, double q, double *f0),
+		  int (*function)(void * params_for_function, double q, double *f0, double z),
 		  void * params_for_function,
 		  qss_node* node,
 		  double a,

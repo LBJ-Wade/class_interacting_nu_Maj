@@ -12,14 +12,14 @@ int get_qsampling_manual(double *x,
 			 enum ncdm_quadrature_method method,
 			 double *qvec,
 			 int qsiz,
-			 int (*function)(void * params_for_function, double q, double *f0),
+			 int (*function)(void * params_for_function, double q, double *f0, double z),
 			 void * params_for_function,
 			 ErrorMsg errmsg) {
 
   double y, h, t;
   double *b, *c;
   int i;
-  switch (method){ 
+  switch (method){
   case (qm_auto) :
     return _FAILURE_;
   case (qm_Laguerre) :
@@ -28,7 +28,7 @@ int get_qsampling_manual(double *x,
     class_alloc(c,N*sizeof(double),errmsg);
     compute_Laguerre(x,w,N,0.0,b,c,_TRUE_);
     for (i=0; i<N; i++){
-      (*function)(params_for_function,x[i],&y);
+      (*function)(params_for_function,x[i],&y,0);
       w[i] *= y;
     }
     free(b);
@@ -39,7 +39,7 @@ int get_qsampling_manual(double *x,
       /** Note that we count q=0 as an extra point with weight 0 */
       h = qmax/N;
       x[i] = h + i*h;
-      (*function)(params_for_function,x[i],&y);
+      (*function)(params_for_function,x[i],&y,0);
       w[i] = y*h;
       if (i==N-1)
 	w[i] *=0.5;
@@ -52,7 +52,7 @@ int get_qsampling_manual(double *x,
       h = 1.0/(N+1.0);
       t = h + i*h;
       x[i] = 1.0/t-1.0;
-      (*function)(params_for_function,x[i],&y);
+      (*function)(params_for_function,x[i],&y,0);
       w[i] = y*h/t/t;
     }
     return _SUCCESS_;
@@ -67,7 +67,7 @@ int get_qsampling(double *x,
 		  double *qvec,
 		  int qsiz,
 		  int (*test)(void * params_for_function, double q, double *psi),
-		  int (*function)(void * params_for_function, double q, double *f0),
+		  int (*function)(void * params_for_function, double q, double *f0, double z),
 		  void * params_for_function,
 		  ErrorMsg errmsg) {
 
@@ -150,7 +150,7 @@ int get_qsampling(double *x,
   /* Combined adaptive quadrature and Laguerre rescaled quadrature: */
   if(qvec!=NULL){
     /* Evaluate [0;qmin] using 4 point Gauss-Legendre rule: */
-    (*function)(params_for_function,qmin,&y2);
+    (*function)(params_for_function,qmin,&y2,0);
     for(i=0,I_atzero=0.0; i<N_comb_leg; i++){
       q_leg[i] = 0.5*qmin*(1.0+q_leg[i]);
       w_leg[i] = w_leg[i]*0.5*qmin*y2;
@@ -159,8 +159,8 @@ int get_qsampling(double *x,
     }
 
     /* Find asymptotic extrapolation:*/
-    (*function)(params_for_function,qmaxm1,&y1);
-    (*function)(params_for_function,qmax,&y2);
+    (*function)(params_for_function,qmaxm1,&y1,0);
+    (*function)(params_for_function,qmax,&y2,0);
 
     b_comb = (y1/y2-1.0)/(qmax-qmaxm1);
     b_comb = MAX(b_comb,1e-100);
@@ -217,7 +217,7 @@ int get_qsampling(double *x,
       else{
 	delq = qvec[i+1]-qvec[i-1];
       }
-      (*function)(params_for_function,qvec[i],&y2);
+      (*function)(params_for_function,qvec[i],&y2, 0);
       wcomb2[i] = 0.5*y2*delq;
       (*test)(params_for_function,qvec[i],&y);
       I_comb2 +=wcomb2[i]*y;
@@ -237,7 +237,7 @@ int get_qsampling(double *x,
     ILag = 0.0;
     for (i=0; i<NLag; i++){
       (*test)(params_for_function,x[i],&y);
-      (*function)(params_for_function,x[i],&y2);
+      (*function)(params_for_function,x[i],&y2,0);
       w[i] *= y2;
       ILag += y*w[i];
     }
@@ -262,7 +262,7 @@ int get_qsampling(double *x,
       ILag = 0.0;
       for (i=0; i<NLag; i++){
 	(*test)(params_for_function,x[i],&y);
-	(*function)(params_for_function,x[i],&y2);
+	(*function)(params_for_function,x[i],&y2,0);
 	w[i] *= y2;
 	ILag += y*w[i];
       }
@@ -493,7 +493,7 @@ double get_integral(qss_node *node, int level){
 int gk_adapt(
 	     qss_node** node,
 	     int (*test)(void * params_for_function, double q, double *psi),
-	     int (*function)(void * params_for_function, double q, double *f0),
+	     int (*function)(void * params_for_function, double q, double *f0, double z),
 	     void * params_for_function,
 	     double tol,
 	     int treemode,
@@ -638,7 +638,7 @@ int compute_Laguerre(double *x, double *w, int N, double alpha, double *b, doubl
 
 
 int gk_quad(int (*test)(void * params_for_function, double q, double *psi),
-	    int (*function)(void * params_for_function, double q, double *f0),
+	    int (*function)(void * params_for_function, double q, double *f0, double z),
 	    void * params_for_function,
 	    qss_node* node,
 	    double a,
@@ -705,7 +705,7 @@ int gk_quad(int (*test)(void * params_for_function, double q, double *psi),
       x = t;
     }
     (*test)(params_for_function,x,&y);
-    (*function)(params_for_function,x,&y2);
+    (*function)(params_for_function,x,&y2,0);
     wk *= y2;
     /* Update Kronrod integral: */
     Ik +=wk*y;
@@ -890,4 +890,3 @@ int cubature_order_eleven(
 
   return _SUCCESS_;
 }
-

@@ -9122,8 +9122,9 @@ int perturb_derivs(double tau,
                                                 l,
                                                 idx+l,
                                                 &Collision[l]);
-                // Collision[l] = Collision_l;
                 // printf("l %d collision %e !!\n",l,Collision[l]);
+                Collision[l] = 0;
+
                 }
              }
              else{
@@ -10194,11 +10195,11 @@ int evaluate_collision_terms_nuphi( struct background * pba,
     // printf("epsilon_phi %e epsilon_nu %e eps_min %e eps_max %e depsilon %e \n",epsilon_phi,epsilon_nu,epsilon_min,epsilon_max,depsilon);
     fbarnu_ephienu = 0;
     interpolate_forpsi_table_at_eps(pba,a,depsilon,f_bar_nu,dd_f_bar_nu,n_ncdm_nu,&fbarnu_ephienu);
-    if(fbarnu_ephienu>1e10){
-      printf("bug when dealing with ncdm %d at idx_q %d (fix: index_q_fix %d l %d idx+l %d)\n", n_ncdm, idx,index_q_fix,index_l_fix,index_lq_fix);
-      printf("a %e depsilon %e fbarnu_ephienu %e epsilon_nu %e fbarnu_enu %e epsilon_phi %e\n",a,depsilon,fbarnu_ephienu,epsilon_nu,fbarnu_enu,epsilon_phi);
-      printf("check interpolation f %e ftrue %e\n",    interpolate_forpsi_table_at_eps(pba,a,epsilon_nu,f_bar_nu,dd_f_bar_nu,n_ncdm_nu,&fbarnu_ephienu),fbarnu_enu);
-    }
+    // if(fbarnu_ephienu>1e10){
+    //   printf("bug when dealing with ncdm %d at idx_q %d (fix: index_q_fix %d l %d idx+l %d)\n", n_ncdm, idx,index_q_fix,index_l_fix,index_lq_fix);
+    //   printf("a %e depsilon %e fbarnu_ephienu %e epsilon_nu %e fbarnu_enu %e epsilon_phi %e\n",a,depsilon,fbarnu_ephienu,epsilon_nu,fbarnu_enu,epsilon_phi);
+    //   printf("check interpolation f %e ftrue %e\n",    interpolate_forpsi_table_at_eps(pba,a,epsilon_nu,f_bar_nu,dd_f_bar_nu,n_ncdm_nu,&fbarnu_ephienu),fbarnu_enu);
+    // }
     fbarnu_enu=MAX(fbarnu_enu,0);
 
     psi_phi_ephi= psi_table[index_l_ephi];
