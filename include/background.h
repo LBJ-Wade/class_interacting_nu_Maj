@@ -325,6 +325,7 @@ struct background
 
   //@{
   int * ncdm_quadrature_strategy; /**< Vector of integers according to quadrature strategy. */
+  int * ncdm_input_q_size_bg; /**< Vector of numbers of q bins in background */
   int * ncdm_input_q_size; /**< Vector of numbers of q bins */
   double * ncdm_qmax;   /**< Vector of maximum value of q */
   double ** q_ncdm_bg;  /**< Pointers to vectors of background sampling in q */
@@ -333,6 +334,7 @@ struct background
   double ** w_ncdm;     /**< Pointers to vectors of corresponding quadrature weights w */
   double ** dlnf0_dlnq_ncdm; /**< Pointers to vectors of logarithmic derivatives of p-s-d */
   double ** f_ncdm; /**<VP: Pointers to vectors of p-s-d */
+  double ** f_ncdm_bg; /**<VP: Pointers to vectors of p-s-d */
   int * q_size_ncdm_bg; /**< Size of the q_ncdm_bg arrays */
   int * q_size_ncdm;    /**< Size of the q_ncdm arrays */
   double * factor_ncdm; /**< List of normalization factors for calculating energy density etc.*/
@@ -554,7 +556,8 @@ extern "C" {
 			 );
 // SJW
  int interpolate_T_and_mu_at_z(struct background *pba,int n_ncdm,double z,double *T_ncdm, double *mu_ncdm);
- int interpolate_background_ncdm_distribution(struct background *pba, int n_ncdm, double z);
+ int interpolate_background_ncdm_distribution(struct background *pba, int n_ncdm, double *qtable,double qsize, double z, double *ftable);
+ int get_q_max(struct background *pba, int n_ncdm, double a, double M,double * qmax);
  int background_MB_approx(struct background *pba, int *lenIndx);
  int RK_Eval(struct background *pba, double GammaPhi, double zhold, double tmajH, double tnuH, double muMh, double muNh, double mMaj, double tcur, double mNu, double k[5]);
  double bessk( int n, double x );

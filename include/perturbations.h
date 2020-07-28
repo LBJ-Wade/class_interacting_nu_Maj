@@ -924,7 +924,7 @@ int interpolate_forpsi_table_at_eps(
                         double * forpsi_at_eps
                         ) ;
 
- int evaluate_collision_terms_nuphi( struct background * pba,
+int evaluate_collision_terms_nuphi( struct background * pba,
                                  struct perturb_vector * pv,
                                  double a,
                                  double * psi_table,
@@ -933,6 +933,12 @@ int interpolate_forpsi_table_at_eps(
                                  int index_l_fix,
                                  int index_lq_fix,
                                  double * Collision_l);
+
+
+int compute_dfdlnq_ncdm(  struct precision *ppr,
+                           struct background *pba,
+                           int n_ncdm,
+                         double z);
 #ifdef __cplusplus
 }
 #endif

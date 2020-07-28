@@ -3635,7 +3635,7 @@ int perturb_vector_init(
   int index_pt;
   int l;
   int n_ncdm,index_q,ncdm_l_size;
-  double rho_plus_p_ncdm,q,q2,epsilon,a,factor;
+  double rho_plus_p_ncdm,q,q2,epsilon,a,factor,M,qmax;
 
   /** - allocate a new perturb_vector structure to which ppw-->pv will point at the end of the routine */
 
@@ -4831,26 +4831,48 @@ int perturb_vector_init(
               ppv->y[ppv->index_pt_psi0_ncdm1+ncdm_l_size*n_ncdm+l] = 0.0;
             }
             factor = pba->factor_ncdm[n_ncdm]*pow(pba->a_today/a,4);
+
+            if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
+              class_call(interpolate_background_ncdm_distribution(pba,n_ncdm,pba->q_ncdm[n_ncdm],pba->q_size_ncdm[n_ncdm],1./a-1,pba->f_ncdm[n_ncdm]),
+              pba->error_message,
+              pba->error_message);
+              M = pba->m_ncdm_in_eV[n_ncdm];
+              class_call(get_q_max(pba,n_ncdm,a,M,&qmax),
+              pba->error_message,
+              pba->error_message);
+            }else{
+              for(index_q = 0; index_q < pba->q_size_ncdm[n_ncdm]; index_q++){
+              pba->f_ncdm[n_ncdm][index_q] = 1;//f_ncdm is already included in w_ncdm in the case of standard neutrinos.
+              }
+              qmax = 1;
+              M = pba->M_ncdm[n_ncdm];
+            }
+
+
+
             for(index_q=0; index_q < ppw->pv->q_size_ncdm[n_ncdm]; index_q++){
               // Integrate over distributions:
-              q = pba->q_ncdm[n_ncdm][index_q];
+
+              q = pba->q_ncdm[n_ncdm][index_q]*qmax;
               q2 = q*q;
-              epsilon = sqrt(q2+a*a*pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]);
+              epsilon = sqrt(q2+a*a*M*M);
               ppv->y[ppv->index_pt_psi0_ncdm1+ncdm_l_size*n_ncdm] +=
-                pba->w_ncdm[n_ncdm][index_q]*q2*epsilon*
+                pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*q2*epsilon*
                 ppw->pv->y[index_pt];
 
               ppv->y[ppv->index_pt_psi0_ncdm1+ncdm_l_size*n_ncdm+1] +=
-                pba->w_ncdm[n_ncdm][index_q]*q2*q*
+                pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*q2*q*
                 ppw->pv->y[index_pt+1];
 
               ppv->y[ppv->index_pt_psi0_ncdm1+ncdm_l_size*n_ncdm+2] +=
-                pba->w_ncdm[n_ncdm][index_q]*q2*q2/epsilon*
+                pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*q2*q2/epsilon*
                 ppw->pv->y[index_pt+2];
 
               //Jump to next momentum bin in ppw->pv->y:
               index_pt += (ppw->pv->l_max_ncdm[n_ncdm]+1);
             }
+
+
             ppv->y[ppv->index_pt_psi0_ncdm1+ncdm_l_size*n_ncdm] *=factor/ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm];
             ppv->y[ppv->index_pt_psi0_ncdm1+ncdm_l_size*n_ncdm+1] *=k*factor/rho_plus_p_ncdm;
             ppv->y[ppv->index_pt_psi0_ncdm1+ncdm_l_size*n_ncdm+2] *=2.0/3.0*factor/rho_plus_p_ncdm;
@@ -5081,7 +5103,7 @@ int perturb_initial_conditions(struct precision * ppr,
   double w_fld,dw_over_da_fld,integral_fld;
   double delta_ur=0.,theta_ur=0.,shear_ur=0.,l3_ur=0.,eta=0.,delta_cdm=0.,alpha, alpha_prime;
   double delta_dr=0;
-  double q,epsilon,k2;
+  double q,epsilon,k2,qmax,M;
   int index_q,n_ncdm,idx;
   double rho_r,rho_m,rho_nu,rho_m_over_rho_r;
   double fracnu,fracg,fracb,fraccdm,om;
@@ -5578,12 +5600,26 @@ int perturb_initial_conditions(struct precision * ppr,
     if (pba->has_ncdm == _TRUE_) {
       idx = ppw->pv->index_pt_psi0_ncdm1;
       for (n_ncdm=0; n_ncdm < pba->N_ncdm; n_ncdm++){
+        if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
+          M = pba->m_ncdm_in_eV[n_ncdm];
+          class_call(get_q_max(pba,n_ncdm,a,M,&qmax),
+          pba->error_message,
+          pba->error_message);
+          class_call(compute_dfdlnq_ncdm(ppr,pba,n_ncdm,1./a-1.),
+          pba->error_message,
+          pba->error_message);
+        }else{
+          qmax = 1;
+          M = pba->M_ncdm[n_ncdm];
+        }
+
 
         for (index_q=0; index_q < ppw->pv->q_size_ncdm[n_ncdm]; index_q++) {
 
-          q = pba->q_ncdm[n_ncdm][index_q];
 
-          epsilon = sqrt(q*q+a*a*pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]);
+          q = pba->q_ncdm[n_ncdm][index_q]*qmax;
+          epsilon = sqrt(q*q+a*a*M*M);
+
 
           ppw->pv->y[idx] = -0.25 * delta_ur * pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
 
@@ -6469,7 +6505,7 @@ int perturb_total_stress_energy(
   double factor;
   double rho_plus_p_ncdm;
   int index_q,n_ncdm,idx;
-  double epsilon,q,q2,cg2_ncdm,w_ncdm,rho_ncdm_bg,p_ncdm_bg,pseudo_p_ncdm;
+  double epsilon,q,q2,cg2_ncdm,w_ncdm,rho_ncdm_bg,p_ncdm_bg,pseudo_p_ncdm,M,qmax;
   double w_fld,dw_over_da_fld,integral_fld;
   double gwncdm;
   double rho_relativistic;
@@ -6751,16 +6787,34 @@ int perturb_total_stress_energy(
           delta_p_ncdm = 0.0;
           factor = pba->factor_ncdm[n_ncdm]*pow(pba->a_today/a,4);
 
+          if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
+            class_call(interpolate_background_ncdm_distribution(pba,n_ncdm,pba->q_ncdm[n_ncdm],pba->q_size_ncdm[n_ncdm],1./a-1,pba->f_ncdm[n_ncdm]),
+            pba->error_message,
+            pba->error_message);
+            M = pba->m_ncdm_in_eV[n_ncdm];
+            class_call(get_q_max(pba,n_ncdm,a,M,&qmax),
+            pba->error_message,
+            pba->error_message);
+          }else{
+            for(index_q = 0; index_q < pba->q_size_ncdm[n_ncdm]; index_q++){
+            pba->f_ncdm[n_ncdm][index_q] = 1;//f_ncdm is already included in w_ncdm in the case of standard neutrinos.
+            }
+            qmax = 1;
+            M = pba->M_ncdm[n_ncdm];
+          }
+
+
+
           for (index_q=0; index_q < ppw->pv->q_size_ncdm[n_ncdm]; index_q ++) {
 
-            q = pba->q_ncdm[n_ncdm][index_q];
+            q = pba->q_ncdm[n_ncdm][index_q]*qmax;
             q2 = q*q;
-            epsilon = sqrt(q2+pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]*a2);
+            epsilon = sqrt(q2+M*M*a2);
 
-            rho_delta_ncdm += q2*epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx];
-            rho_plus_p_theta_ncdm += q2*q*pba->w_ncdm[n_ncdm][index_q]*y[idx+1];
-            rho_plus_p_shear_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx+2];
-            delta_p_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx];
+            rho_delta_ncdm += q2*epsilon*pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*y[idx];
+            rho_plus_p_theta_ncdm += q2*q*pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*y[idx+1];
+            rho_plus_p_shear_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*y[idx+2];
+            delta_p_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*y[idx];
 
             //Jump to next momentum bin:
             idx+=(ppw->pv->l_max_ncdm[n_ncdm]+1);
@@ -6778,7 +6832,6 @@ int perturb_total_stress_energy(
             ppw->shear_ncdm[n_ncdm] = rho_plus_p_shear_ncdm/
               (ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm]);
           }
-
           ppw->delta_rho += rho_delta_ncdm;
           ppw->rho_plus_p_theta += rho_plus_p_theta_ncdm;
           ppw->rho_plus_p_shear += rho_plus_p_shear_ncdm;
@@ -7043,9 +7096,19 @@ int perturb_total_stress_energy(
 
         for (index_q=0; index_q < ppw->pv->q_size_ncdm[n_ncdm]; index_q ++) {
 
-          q = pba->q_ncdm[n_ncdm][index_q];
+          if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
+            M = pba->m_ncdm_in_eV[n_ncdm];
+            class_call(get_q_max(pba,n_ncdm,a,M,&qmax),
+            pba->error_message,
+            pba->error_message);
+          }else{
+            qmax = 1;
+            M = pba->M_ncdm[n_ncdm];
+          }
+
+          q = pba->q_ncdm[n_ncdm][index_q]*qmax;
           q2 = q*q;
-          epsilon = sqrt(q2+pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]*a2);
+          epsilon = sqrt(q2+M*M*a2);
 
           gwncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*(1./15.*y[idx]+2./21.*y[idx+2]+1./35.*y[idx+4]);
 
@@ -7737,7 +7800,7 @@ int perturb_print_variables(double tau,
   double rho_plus_p_shear_ncdm = 0.0;
   double delta_p_ncdm = 0.0;
   double factor = 0.0;
-  double q,q2,epsilon;
+  double q,q2,epsilon,M,qmax;
   /** - ncdm sector ends */
   double phi=0.,psi=0.,alpha=0.;
   double delta_temp=0., delta_chi=0.;
@@ -7953,16 +8016,34 @@ int perturb_print_variables(double tau,
           delta_p_ncdm = 0.0;
           factor = pba->factor_ncdm[n_ncdm]*pow(pba->a_today/a,4);
 
+          if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
+            class_call(interpolate_background_ncdm_distribution(pba,n_ncdm,pba->q_ncdm[n_ncdm],pba->q_size_ncdm[n_ncdm],1./a-1,pba->f_ncdm[n_ncdm]),
+            pba->error_message,
+            pba->error_message);
+            M = pba->m_ncdm_in_eV[n_ncdm];
+            class_call(get_q_max(pba,n_ncdm,a/pba->a_today,M,&qmax),
+            pba->error_message,
+            pba->error_message);
+          }else{
+            for(index_q = 0; index_q < pba->q_size_ncdm[n_ncdm]; index_q++){
+            pba->f_ncdm[n_ncdm][index_q] = 1;//f_ncdm is already included in w_ncdm in the case of standard neutrinos.
+            }
+            qmax = 1;
+            M = pba->M_ncdm[n_ncdm];
+          }
+
+
+
           for (index_q=0; index_q < ppw->pv->q_size_ncdm[n_ncdm]; index_q ++) {
 
-            q = pba->q_ncdm[n_ncdm][index_q];
+            q = pba->q_ncdm[n_ncdm][index_q]*qmax;
             q2 = q*q;
-            epsilon = sqrt(q2+pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]*a2);
+            epsilon = sqrt(q2+M*M*a2);
 
-            rho_delta_ncdm += q2*epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx];
-            rho_plus_p_theta_ncdm += q2*q*pba->w_ncdm[n_ncdm][index_q]*y[idx+1];
-            rho_plus_p_shear_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx+2];
-            delta_p_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx];
+            rho_delta_ncdm += q2*epsilon*pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*y[idx];
+            rho_plus_p_theta_ncdm += q2*q*pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*y[idx+1];
+            rho_plus_p_shear_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*y[idx+2];
+            delta_p_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*y[idx];
 
             //Jump to next momentum bin:
             idx+=(ppw->pv->l_max_ncdm[n_ncdm]+1);
@@ -8232,17 +8313,36 @@ int perturb_print_variables(double tau,
         rho_plus_p_shear_ncdm = 0.0;
         delta_p_ncdm = 0.0;
         factor = pba->factor_ncdm[n_ncdm]*pow(pba->a_today/a,4);
+        if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
+          class_call(interpolate_background_ncdm_distribution(pba,n_ncdm,pba->q_ncdm[n_ncdm],pba->q_size_ncdm[n_ncdm],1./a-1,pba->f_ncdm[n_ncdm]),
+          pba->error_message,
+          pba->error_message);
+          M = pba->m_ncdm_in_eV[n_ncdm];
+          class_call(get_q_max(pba,n_ncdm,a,M,&qmax),
+          pba->error_message,
+          pba->error_message);
+        }else{
+          for(index_q = 0; index_q < pba->q_size_ncdm[n_ncdm]; index_q++){
+          pba->f_ncdm[n_ncdm][index_q] = 1;//f_ncdm is already included in w_ncdm in the case of standard neutrinos.
+          }
+          qmax = 1;
+          M = pba->M_ncdm[n_ncdm];
+        }
+
+
 
         for (index_q=0; index_q < ppw->pv->q_size_ncdm[n_ncdm]; index_q ++) {
 
-          q = pba->q_ncdm[n_ncdm][index_q];
-          q2 = q*q;
-          epsilon = sqrt(q2+pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]*a2);
 
-          rho_delta_ncdm += q2*epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx];
-          rho_plus_p_theta_ncdm += q2*q*pba->w_ncdm[n_ncdm][index_q]*y[idx+1];
-          rho_plus_p_shear_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx+2];
-          delta_p_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*y[idx];
+
+          q = pba->q_ncdm[n_ncdm][index_q]*qmax;
+          q2 = q*q;
+          epsilon = sqrt(q2+M*M*a2);
+
+          rho_delta_ncdm += q2*epsilon*pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*y[idx];
+          rho_plus_p_theta_ncdm += q2*q*pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*y[idx+1];
+          rho_plus_p_shear_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*y[idx+2];
+          delta_p_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*y[idx];
 
           //Jump to next momentum bin:
           idx+=(ppw->pv->l_max_ncdm[n_ncdm]+1);
@@ -8357,7 +8457,7 @@ int perturb_derivs(double tau,
 
   /* for use with non-cold dark matter (ncdm): */
   int index_q,n_ncdm,idx;
-  double q,epsilon,dlnf0_dlnq,qk_div_epsilon;
+  double q,epsilon,dlnf0_dlnq,qk_div_epsilon,M,qmax;
   double rho_ncdm_bg,p_ncdm_bg,pseudo_p_ncdm,w_ncdm,ca2_ncdm,ceff2_ncdm=0.,cvis2_ncdm=0.;
 
   /* for use with curvature */
@@ -9091,8 +9191,22 @@ int perturb_derivs(double tau,
         /** - -----> loop over species */
 
         for (n_ncdm=0; n_ncdm<pv->N_ncdm; n_ncdm++) {
-
+          // printf("n_ncdm %d\n", n_ncdm);
           class_alloc(Collision, sizeof(double)*pv->l_max_ncdm[n_ncdm],error_message);
+          if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
+            M = pba->m_ncdm_in_eV[n_ncdm];
+            class_call(get_q_max(pba,n_ncdm,a,M,&qmax),
+            pba->error_message,
+            pba->error_message);
+            class_call(compute_dfdlnq_ncdm(ppr,pba,n_ncdm,1./a-1.),
+            pba->error_message,
+            pba->error_message);
+          }else{
+            // printf("here!\n");
+            qmax = 1;
+            M = pba->M_ncdm[n_ncdm];
+          }
+
 
 
           /** - -----> loop over momentum */
@@ -9100,10 +9214,13 @@ int perturb_derivs(double tau,
           for (index_q=0; index_q < pv->q_size_ncdm[n_ncdm]; index_q++) {
 
             /** - -----> define intermediate quantities */
-
+            //
+            // if(n_ncdm ==2){
+            //   dlnf0_dlnq=0;
+            // }else
             dlnf0_dlnq = pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
-            q = pba->q_ncdm[n_ncdm][index_q];
-            epsilon = sqrt(q*q+a2*pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]);
+            q = pba->q_ncdm[n_ncdm][index_q]*qmax;
+            epsilon = sqrt(q*q+a2*M*M);
             qk_div_epsilon = k*q/epsilon;
 
             /** VP: If neutrino have non-zero Gamma_phi we compute collision term*/
@@ -9138,7 +9255,7 @@ int perturb_derivs(double tau,
             /** - -----> ncdm density for given momentum bin */
 
             dy[idx] = -qk_div_epsilon*y[idx+1]+metric_continuity*dlnf0_dlnq/3.+Collision[0];
-            // printf("-qk_div_epsilon*y[idx+1] %e metric_continuity*dlnf0_dlnq/3 %e Collision[0] %e\n",-qk_div_epsilon*y[idx+1],metric_continuity*dlnf0_dlnq/3,Collision[0]);
+            // printf("n_ncdm %d -qk_div_epsilon*y[idx+1] %e metric_continuity*dlnf0_dlnq/3 %e Collision[0] %e dlnf0_dlnq %e\n",n_ncdm,-qk_div_epsilon*y[idx+1],metric_continuity*dlnf0_dlnq/3,Collision[0],dlnf0_dlnq);
             /** - -----> ncdm velocity for given momentum bin */
 
             dy[idx+1] = qk_div_epsilon/3.0*(y[idx] - 2*s_l[2]*y[idx+2])
@@ -9451,14 +9568,29 @@ int perturb_derivs(double tau,
       for (n_ncdm=0; n_ncdm<pv->N_ncdm; n_ncdm++) {
 
         /** - ----> loop over momentum */
+        if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
+          M = pba->m_ncdm_in_eV[n_ncdm];
+          class_call(get_q_max(pba,n_ncdm,a,M,&qmax),
+          pba->error_message,
+          pba->error_message);
+          class_call(compute_dfdlnq_ncdm(ppr,pba,n_ncdm,1./a-1.),
+          pba->error_message,
+          pba->error_message);
+        }else{
+          qmax = 1;
+          M = pba->M_ncdm[n_ncdm];
+        }
+
 
         for (index_q=0; index_q < pv->q_size_ncdm[n_ncdm]; index_q++) {
 
           /** - ----> define intermediate quantities */
 
           dlnf0_dlnq = pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
-          q = pba->q_ncdm[n_ncdm][index_q];
-          epsilon = sqrt(q*q+a2*pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]);
+
+
+          q = pba->q_ncdm[n_ncdm][index_q]*qmax;
+          epsilon = sqrt(q*q+a2*M*M);
           qk_div_epsilon = k*q/epsilon;
 
           /** - ----> ncdm density for given momentum bin */
@@ -10015,14 +10147,18 @@ int interpolate_forpsi_table_at_eps(
   int last_index,i;
   double epsilon_min, epsilon_max;
   double * table_eps;
+  double qmax;
   class_alloc(table_eps,sizeof(double)*pba->q_size_ncdm[n_ncdm],pba->error_message);
+  class_call(get_q_max(pba,n_ncdm,a,pba->m_ncdm_in_eV[n_ncdm],&qmax),
+  pba->error_message,
+  pba->error_message);
   // printf("here!\n");
-  epsilon_min =sqrt(pba->q_ncdm[n_ncdm][0]*pba->q_ncdm[n_ncdm][0]+a*a*pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]);
+  epsilon_min =sqrt(pba->q_ncdm[n_ncdm][0]*pba->q_ncdm[n_ncdm][0]*qmax*qmax+a*a*pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]);
   // printf("epsilon_min %e\n", epsilon_min);
-  epsilon_max =sqrt(pba->q_ncdm[n_ncdm][pba->q_size_ncdm[n_ncdm]-1]*pba->q_ncdm[n_ncdm][pba->q_size_ncdm[n_ncdm]-1]+a*a*pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]);
+  epsilon_max =sqrt(pba->q_ncdm[n_ncdm][pba->q_size_ncdm[n_ncdm]-1]*pba->q_ncdm[n_ncdm][pba->q_size_ncdm[n_ncdm]-1]*qmax*qmax+a*a*pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]);
   // printf("epsilon_max %e\n", epsilon_max);
   for(i = 0; i < pba->q_size_ncdm[n_ncdm] ; i++){
-    table_eps[i] = sqrt(pba->q_ncdm[n_ncdm][i]*pba->q_ncdm[n_ncdm][i]+a*a*pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]);
+    table_eps[i] = sqrt(pba->q_ncdm[n_ncdm][i]*pba->q_ncdm[n_ncdm][i]*qmax*qmax+a*a*pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]);
   }
   if (eps >= epsilon_min && eps <= epsilon_max){
     /** - interpolate from pre-computed table with array_interpolate() */
@@ -10066,7 +10202,9 @@ int evaluate_collision_terms_nuphi( struct background * pba,
 
   double q,q_phi,q_nu,epsilon_phi,epsilon_nu,depsilon,q2,epsilon,fbarphi_ephi,fbarnu_enu,fbarnu_ephienu,psi_phi_ephi,psi_nu_enu,psi_nu_ephienu,Cl_phi,m_star,w,fbar;
   int index_l_ephi,index_l_enu,index_q_phi,index_q_nu,l_max,idx,idx_nu, index_q_loop;
-  int n_ncdm_nu;
+  double * qmax_ncdm;
+  double M;
+  int n_ncdm_nu, n;
   double * psi_table_nu_l;
   double * dd_psi_table_nu_l;
   double * f_bar_nu;
@@ -10074,38 +10212,42 @@ int evaluate_collision_terms_nuphi( struct background * pba,
   double epsilon_min, epsilon_max, heavyside;
   int sign;
   *Collision_l = 0;
+  class_alloc(qmax_ncdm, sizeof(double)*pba->N_ncdm,pba->error_message);
 
   //testing
-  epsilon_min =sqrt(pba->q_ncdm[n_ncdm][0]*pba->q_ncdm[n_ncdm][0]+a*a*pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]);
-  epsilon_max =sqrt(pba->q_ncdm[n_ncdm][pba->q_size_ncdm[n_ncdm]-1]*pba->q_ncdm[n_ncdm][pba->q_size_ncdm[n_ncdm]-1]+a*a*pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]);
-  // printf("n_ncdm %d epsilon_min %e\n",n_ncdm, epsilon_min);
-  // printf("n_ncdm %d epsilon_max %e\n", n_ncdm, epsilon_max);
+  M = pba->m_ncdm_in_eV[n_ncdm];
+
+  for(n = 0; n<pba->N_ncdm; n++){
+    class_call(get_q_max(pba,n,a,pba->m_ncdm_in_eV[n],&qmax_ncdm[n]),
+    pba->error_message,
+    pba->error_message);
+  }
 
   if(n_ncdm == pba->entry_is_M_phi){
 
     //we start by attributing a number of quantities that are fixed.
     n_ncdm_nu = pba->entry_is_M_phi-1;
     m_star = sqrt(pba->M_phi*pba->M_phi-4*pba->m_ncdm_in_eV[pba->entry_is_M_phi-1]*pba->m_ncdm_in_eV[pba->entry_is_M_phi-1]); //for the moment we assume 3 degenerate mass neutrinos.//we add a minus sign for the majoron
-    idx = pv->index_pt_psi0_ncdm1+(pv->q_size_ncdm[n_ncdm])*(pv->l_max_ncdm[n_ncdm_nu]+1);
+    idx = pv->index_pt_psi0_ncdm1+(pv->q_size_ncdm[n_ncdm_nu])*(pv->l_max_ncdm[n_ncdm_nu]+1);
     sign = -1;
     index_q_phi = index_q_fix;
-    q_phi = pba->q_ncdm[n_ncdm][index_q_phi];
-    epsilon_phi =sqrt(q_phi*q_phi+a*a*pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]);
-    epsilon_min = m_star/2/pba->M_phi*(epsilon_phi*sqrt(1+4*pba->M_ncdm[n_ncdm_nu]*pba->M_ncdm[n_ncdm_nu]/m_star/m_star)-q_phi);
-    epsilon_max = m_star/2/pba->M_phi*(epsilon_phi*sqrt(1+4*pba->M_ncdm[n_ncdm_nu]*pba->M_ncdm[n_ncdm_nu]/m_star/m_star)+q_phi);
+    q_phi = pba->q_ncdm[n_ncdm][index_q_phi]*qmax_ncdm[n_ncdm];
+    epsilon_phi =sqrt(q_phi*q_phi+a*a*M*M);
+    epsilon_min = m_star/2/pba->M_phi*(epsilon_phi*sqrt(1+4*M*M/m_star/m_star)-q_phi);
+    epsilon_max = m_star/2/pba->M_phi*(epsilon_phi*sqrt(1+4*M*M/m_star/m_star)+q_phi);
   }
   else{
     n_ncdm_nu = n_ncdm;
-    m_star = sqrt(pba->M_phi*pba->M_phi-4*pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]);
+    m_star = sqrt(pba->M_phi*pba->M_phi-4*pba->m_ncdm_in_eV[n_ncdm_nu]*pba->m_ncdm_in_eV[n_ncdm_nu]);
     idx = pv->index_pt_psi0_ncdm1;
     sign = +1;
     index_q_nu = index_q_fix;
-    q_nu = pba->q_ncdm[n_ncdm_nu][index_q_nu];
-    epsilon_nu =sqrt(q_nu*q_nu+a*a*pba->M_ncdm[n_ncdm_nu]*pba->M_ncdm[n_ncdm_nu]);
+    q_nu = pba->q_ncdm[n_ncdm_nu][index_q_nu]*qmax_ncdm[n_ncdm_nu];
+    epsilon_nu =sqrt(q_nu*q_nu+a*a*M*M);
     epsilon_min = m_star*pba->M_phi/2/pba->m_ncdm_in_eV[n_ncdm_nu]/pba->m_ncdm_in_eV[n_ncdm_nu]
-              *(epsilon_nu*sqrt(1+4*pba->M_ncdm[n_ncdm_nu]*pba->M_ncdm[n_ncdm_nu]/m_star/m_star)-q_nu);
+              *(epsilon_nu*sqrt(1+4*M*M/m_star/m_star)-q_nu);
     epsilon_max = m_star*pba->M_phi/2/pba->m_ncdm_in_eV[n_ncdm_nu]/pba->m_ncdm_in_eV[n_ncdm_nu]
-              *(epsilon_nu*sqrt(1+4*pba->M_ncdm[n_ncdm_nu]*pba->M_ncdm[n_ncdm_nu]/m_star/m_star)+q_nu);
+              *(epsilon_nu*sqrt(1+4*M*M/m_star/m_star)+q_nu);
   }
 
   idx_nu = pv->index_pt_psi0_ncdm1;
@@ -10153,10 +10295,9 @@ int evaluate_collision_terms_nuphi( struct background * pba,
       index_q_nu = index_q_loop;
       index_l_ephi = index_lq_fix;
       index_l_enu = idx+index_l_fix;
-      q_nu = pba->q_ncdm[n_ncdm_nu][index_q_nu];
-      epsilon_nu =sqrt(q_nu*q_nu+a*a*pba->M_ncdm[n_ncdm_nu]*pba->M_ncdm[n_ncdm_nu]);
-      w = q_nu/epsilon_nu*pba->w_ncdm[n_ncdm_nu][index_q_nu]/pba->f_ncdm[n_ncdm_nu][index_q_nu];//convert deps = q/e*dq //extra factor 1/f because w = dq*f
-      w *= pba->T_cmb*pba->T_ncdm[n_ncdm_nu]*_k_B_/_eV_; //convert deps from K to eV
+      q_nu = pba->q_ncdm[n_ncdm_nu][index_q_nu]*qmax_ncdm[n_ncdm_nu];
+      epsilon_nu =sqrt(q_nu*q_nu+a*a*pba->m_ncdm_in_eV[n_ncdm_nu]*pba->m_ncdm_in_eV[n_ncdm_nu]);
+      w = q_nu/epsilon_nu*pba->w_ncdm[n_ncdm_nu][index_q_nu]*qmax_ncdm[index_q_nu];//convert deps = q/e*dq //extra qmax because w = dq/qmax//in eV
       l_max = pv->l_max_ncdm[n_ncdm_nu];
       if(epsilon_nu >= epsilon_min && epsilon_nu <= epsilon_max){
         heavyside = 1;
@@ -10172,11 +10313,10 @@ int evaluate_collision_terms_nuphi( struct background * pba,
       index_q_phi = index_q_loop;
       index_l_ephi = idx+index_l_fix;
       index_l_enu = index_lq_fix;
-      q_phi = pba->q_ncdm[pba->entry_is_M_phi][index_q_phi];
-      epsilon_phi =sqrt(q_phi*q_phi+a*a*pba->M_ncdm[pba->entry_is_M_phi]*pba->M_ncdm[pba->entry_is_M_phi]);
+      q_phi = pba->q_ncdm[pba->entry_is_M_phi][index_q_phi]*qmax_ncdm[pba->entry_is_M_phi];
+      epsilon_phi =sqrt(q_phi*q_phi+a*a*pba->m_ncdm_in_eV[pba->entry_is_M_phi]*pba->m_ncdm_in_eV[pba->entry_is_M_phi]);
 
-      w = q_phi/epsilon_phi*pba->w_ncdm[pba->entry_is_M_phi][index_q_phi]/pba->f_ncdm[pba->entry_is_M_phi][index_q_phi];//convert deps = q/e*dq //extra factor 1/f because w = dq*f in CLASS
-      w *= pba->T_cmb*pba->T_ncdm[pba->entry_is_M_phi]*_k_B_/_eV_; //convert dq in eV
+      w = q_phi/epsilon_phi*pba->w_ncdm[pba->entry_is_M_phi][index_q_phi]*qmax_ncdm[pba->entry_is_M_phi];//convert deps = q/e*dq //extra qmax because w = dq/qmax//in eV
       l_max = pv->l_max_ncdm[pba->entry_is_M_phi];
       if(epsilon_phi >= epsilon_min && epsilon_phi <= epsilon_max){
         heavyside = 1;
@@ -10221,8 +10361,8 @@ int evaluate_collision_terms_nuphi( struct background * pba,
 
   }
 
-  q = pba->T_cmb*pba->T_ncdm[n_ncdm]*_k_B_/_eV_*pba->q_ncdm[n_ncdm][index_q_fix]; //conversion to eV
-  epsilon = pba->T_cmb*pba->T_ncdm[n_ncdm]*_k_B_/_eV_*sqrt(q*q+a*a*pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]); //conversion to eV
+  q = pba->q_ncdm[n_ncdm][index_q_fix]*qmax_ncdm[n_ncdm]; //conversion to eV
+  epsilon = sqrt(q*q+a*a*pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]); //in eV
   fbar = pow(2*_PI_,3)*pba->f_ncdm[n_ncdm][index_q_fix]; //pow(2*_PI_,3) difference in the convention
 
 
@@ -10240,4 +10380,89 @@ int evaluate_collision_terms_nuphi( struct background * pba,
 
 return _SUCCESS_;
 
+}
+
+
+
+
+//To be adapted.
+int compute_dfdlnq_ncdm(  struct precision *ppr,
+                          struct background *pba,
+                          int n_ncdm,
+                          double z){
+  int index_q,tolexp,row,status,filenum;
+  double f0m2= 0,f0m1= 0,f0= 0,f0p1= 0,f0p2= 0,dq= 0,q= 0,df0dq= 0,tmp1= 0,tmp2= 0,f0back= 0;
+  double * pvecback;
+  double T_ncdm, mu_ncdm, dlnf0_dlnq_ncdm, qmax;
+  struct background_parameters_for_distributions pbadist;
+
+  pbadist.pba = pba;
+  pbadist.n_ncdm = n_ncdm;
+
+  for (index_q=0; index_q<pba->q_size_ncdm[n_ncdm]; index_q++) {
+    q = pba->q_ncdm[n_ncdm][index_q];
+    class_call(background_ncdm_distribution(&pbadist,q,&f0,z),
+               pba->error_message,pba->error_message);
+
+
+
+
+     interpolate_T_and_mu_at_z(pba,n_ncdm,z,&T_ncdm,&mu_ncdm);
+     class_call(get_q_max(pba,n_ncdm,1/(1+z),pba->m_ncdm_in_eV[n_ncdm],&qmax),
+     pba->error_message,
+     pba->error_message);
+     pba->dlnf0_dlnq_ncdm[n_ncdm][index_q] = (-q*qmax*(1+z)*(1+z)/(T_ncdm*sqrt(q*qmax*q*qmax*(1+z)*(1+z)-mu_ncdm))*(f0+f0*f0))*(q*qmax)/(f0);
+
+    //OLD NUMERICAL WAY OF EXTRACTING THE DERIVATIVE; kept for comparison.
+    // //Loop to find appropriate dq:
+    // for(tolexp=_PSD_DERIVATIVE_EXP_MIN_; tolexp<_PSD_DERIVATIVE_EXP_MAX_; tolexp++){
+    //
+    //   if (index_q == 0){
+    //     dq = MIN((0.5-ppr->smallest_allowed_variation)*q,2*exp(tolexp)*(pba->q_ncdm[n_ncdm][index_q+1]-q));
+    //   }
+    //   else if (index_q == pba->q_size_ncdm[n_ncdm]-1){
+    //     dq = exp(tolexp)*2.0*(pba->q_ncdm[n_ncdm][index_q]-pba->q_ncdm[n_ncdm][index_q-1]);
+    //   }
+    //   else{
+    //     dq = exp(tolexp)*(pba->q_ncdm[n_ncdm][index_q+1]-pba->q_ncdm[n_ncdm][index_q-1]);
+    //   }
+    //
+    //   class_call(background_ncdm_distribution(&pbadist,q-2*dq,&f0m2,z),
+    //              pba->error_message,pba->error_message);
+    //   class_call(background_ncdm_distribution(&pbadist,q+2*dq,&f0p2,z),
+    //              pba->error_message,pba->error_message);
+    //
+    //   if (fabs((f0p2-f0m2)/f0)>sqrt(ppr->smallest_allowed_variation)) break;
+    // }
+    //
+    // class_call(background_ncdm_distribution(&pbadist,q-dq,&f0m1,z),
+    //            pba->error_message,pba->error_message);
+    // class_call(background_ncdm_distribution(&pbadist,q+dq,&f0p1,z),
+    //            pba->error_message,pba->error_message);
+    // //5 point estimate of the derivative:
+    // df0dq = (+f0m2-8*f0m1+8*f0p1-f0p2)/12.0/dq;
+    // // printf("df0dq[%g] = %g. dlnf0_dlnq_ncdm= %g. f0 =%g.\n",q,df0dq,q/f0*df0dq,f0);
+    // //Avoid underflow in extreme tail:
+    // if (fabs(f0)==0.)
+    //   pba->dlnf0_dlnq_ncdm[n_ncdm][index_q] = -q; /* valid for whatever f0 with exponential tail in exp(-q) */
+    // else if (f0==1e-40 || isinf(fabs(df0dq)))
+    //   pba->dlnf0_dlnq_ncdm[n_ncdm][index_q] = 0; /* to avoid bug */
+    // else
+    //   pba->dlnf0_dlnq_ncdm[n_ncdm][index_q] = q/f0*df0dq;
+    //
+    // if(isinf(fabs(pba->dlnf0_dlnq_ncdm[n_ncdm][index_q])) || isnan(fabs(pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]))){
+    //   printf("n_ncdm %d index_q %d pba->dlnf0_dlnq_ncdm[n_ncdm][index_q] %e\n",n_ncdm,index_q, pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]);
+    //   pba->dlnf0_dlnq_ncdm[n_ncdm][index_q] = 0;
+    // }
+
+    // printf("dlnf0_dlnq_ncdm anal %e dlnf0_dlnq_ncdm num %e \n",dlnf0_dlnq_ncdm,pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]);
+
+
+
+
+
+  }
+
+
+  return _SUCCESS_;
 }

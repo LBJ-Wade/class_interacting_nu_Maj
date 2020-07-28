@@ -1114,6 +1114,7 @@ int input_read_parameters(
     /* Quadrature modes, 0 is qm_auto. */
     class_read_list_of_integers_or_default("Quadrature strategy",pba->ncdm_quadrature_strategy,0,N_ncdm);
     /* Number of momentum bins */
+    class_read_list_of_integers_or_default("Number of momentum bins background",pba->ncdm_input_q_size_bg,-1,N_ncdm);
     class_read_list_of_integers_or_default("Number of momentum bins",pba->ncdm_input_q_size,-1,N_ncdm);
 
     /* qmax, if relevant */
@@ -1249,32 +1250,29 @@ int input_read_parameters(
         // if(n == pba->entry_is_M_phi){
         //   pba->M_phi = pba->M_phi/_k_B_*_eV_/pba->T_ncdm[n]/pba->T_cmb;
         // }
-        if(pba->M_phi > 0){
+        if(pba->ncdm_background_distribution[n] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n] == _majoron_){
           //evaluate f today
-          printf("about to call in input %d %e\n",n,pba->m_ncdm_in_eV[n]);
-          class_call(interpolate_background_ncdm_distribution(pba,n,0),
+          class_call(interpolate_background_ncdm_distribution(pba,n,pba->q_ncdm_bg[n],pba->q_size_ncdm_bg[n],0.0,pba->f_ncdm_bg[n]),
           pba->error_message,
           pba->error_message);
-          class_call(interpolate_T_and_mu_at_z(pba,n,0,&T_ncdm,&mu_ncdm),
+          class_call(interpolate_T_and_mu_at_z(pba,n,0.0,&T_ncdm,&mu_ncdm),
           pba->error_message,
           pba->error_message);
           M = pba->m_ncdm_in_eV[n];
-          if(20*T_ncdm > 3 *M){
-            qmax = pow(20*20*T_ncdm*T_ncdm-(M*M),0.5)/pba->ncdm_qmax[n];
-          }else{
-            qmax = pow(8*M*M,0.5)/pba->ncdm_qmax[n];
-          }
+          class_call(get_q_max(pba,n,1.0,M,&qmax),
+          pba->error_message,
+          pba->error_message);
         }else{
-          for(index_q = 0; index_q < pba->q_size_ncdm[n]; index_q++){
-          pba->f_ncdm[n][index_q] = 1;//f_ncdm is already included in w_ncdm_bg in the case of standard neutrinos.
+          for(index_q = 0; index_q < pba->q_size_ncdm_bg[n]; index_q++){
+          pba->f_ncdm_bg[n][index_q] = 1;//f_ncdm is already included in w_ncdm_bg in the case of standard neutrinos.
           }
           M = pba->M_ncdm[n];
           qmax=1;
         }
-
+        // printf("here\n");
         class_call(background_ncdm_momenta(pba->q_ncdm_bg[n],
                                            pba->w_ncdm_bg[n],
-                                           pba->f_ncdm[n],
+                                           pba->f_ncdm_bg[n],
                                            pba->q_size_ncdm_bg[n],
                                            M,
                                            qmax,

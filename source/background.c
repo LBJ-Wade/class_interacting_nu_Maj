@@ -363,7 +363,6 @@ int background_functions(
   }
 
   /* ncdm */
-
   if (pba->has_ncdm == _TRUE_) {
 
     /* Loop over species: */
@@ -373,26 +372,26 @@ int background_functions(
          those for which non-NULL pointers are passed) */
 
     if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
-      class_call(interpolate_background_ncdm_distribution(pba,n_ncdm,1./a_rel-1.),
+      class_call(interpolate_background_ncdm_distribution(pba,n_ncdm,pba->q_ncdm_bg[n_ncdm],pba->q_size_ncdm_bg[n_ncdm],1./a_rel-1.,pba->f_ncdm_bg[n_ncdm]),
       pba->error_message,
       pba->error_message);
       class_call(interpolate_T_and_mu_at_z(pba,n_ncdm,1./a_rel-1.,&T_ncdm,&mu_ncdm),
       pba->error_message,
       pba->error_message);
-      pvecback[pba->index_bg_T_ncdm1+n_ncdm] = T_ncdm;
-      pvecback[pba->index_bg_Mu_ncdm1+n_ncdm] = mu_ncdm;
+      pvecback[pba->index_bg_T_ncdm1+n_ncdm] = T_ncdm*_eV_/_k_B_/pba->T_cmb;//Tncdm / Tcmb
+      pvecback[pba->index_bg_Mu_ncdm1+n_ncdm] = mu_ncdm*_eV_/_k_B_/pba->T_cmb;//mu_ncdm / Tcmb
       M = pba->m_ncdm_in_eV[n_ncdm];
-      if(20*T_ncdm > 3 *M){
-        qmax = pow(20*20*T_ncdm*T_ncdm-(M*M),0.5)*a_rel/pba->ncdm_qmax[n_ncdm];
-      }else{
-        qmax = pow(8*M*M,0.5)*a_rel/pba->ncdm_qmax[n_ncdm];
-      }
+      class_call(get_q_max(pba,n_ncdm,a_rel,M,&qmax),
+      pba->error_message,
+      pba->error_message);
     }else{
-      for(index_q = 0; index_q < pba->q_size_ncdm[n_ncdm]; index_q++){
-      pba->f_ncdm[n_ncdm][index_q] = 1;//f_ncdm is already included in w_ncdm_bg in the case of standard neutrinos.
+      for(index_q = 0; index_q < pba->q_size_ncdm_bg[n_ncdm]; index_q++){
+      pba->f_ncdm_bg[n_ncdm][index_q] = 1;//f_ncdm is already included in w_ncdm_bg in the case of standard neutrinos.
       }
       qmax=1;
       M = pba->M_ncdm[n_ncdm];
+      pvecback[pba->index_bg_T_ncdm1+n_ncdm] = pba->T_ncdm[n_ncdm]/a_rel;
+      pvecback[pba->index_bg_Mu_ncdm1+n_ncdm] = pba->T_ncdm[n_ncdm]*pba->ksi_ncdm[n_ncdm];
     }
 
 
@@ -400,7 +399,7 @@ int background_functions(
       class_call(background_ncdm_momenta(
                                          pba->q_ncdm_bg[n_ncdm],
                                          pba->w_ncdm_bg[n_ncdm],
-                                         pba->f_ncdm[n_ncdm],
+                                         pba->f_ncdm_bg[n_ncdm],
                                          pba->q_size_ncdm_bg[n_ncdm],
                                          M,
                                          qmax,
@@ -414,7 +413,7 @@ int background_functions(
                                          &pseudo_p_ncdm),
                  pba->error_message,
                  pba->error_message);
-      // printf("n_ncdm %d z %e rho_ncdm %e\n",n_ncdm, a_rel, rho_ncdm);
+
       pvecback[pba->index_bg_rho_ncdm1+n_ncdm] = rho_ncdm;
       rho_tot += rho_ncdm;
       pvecback[pba->index_bg_p_ncdm1+n_ncdm] = p_ncdm;
@@ -684,22 +683,21 @@ int background_init(
 
         if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
             // printf("1./(ppr->a_ini_over_a_today_default * pba->a_today)-1. %e\n", 1./(ppr->a_ini_over_a_today_default * pba->a_today)-1.);
-            class_call(interpolate_background_ncdm_distribution(pba,n_ncdm,1./(ppr->a_ini_over_a_today_default * pba->a_today)-1.),
+            class_call(interpolate_background_ncdm_distribution(pba,n_ncdm,pba->q_ncdm_bg[n_ncdm],pba->q_size_ncdm_bg[n_ncdm],1./(ppr->a_ini_over_a_today_default * pba->a_today)-1.,pba->f_ncdm_bg[n_ncdm]),
+            // class_call(interpolate_background_ncdm_distribution(pba,n_ncdm,0.),
             pba->error_message,
             pba->error_message);
-            class_call(interpolate_T_and_mu_at_z(pba,n_ncdm,1./(ppr->a_ini_over_a_today_default * pba->a_today)-1.,&T_ncdm,&mu_ncdm),
-            pba->error_message,
-            pba->error_message);
+
             M = pba->m_ncdm_in_eV[n_ncdm];
-            if(20*T_ncdm > 3 *M){
-              qmax = pow(20*20*T_ncdm*T_ncdm-(M*M),0.5)*ppr->a_ini_over_a_today_default * pba->a_today/pba->ncdm_qmax[n_ncdm];
-            }else{
-              qmax = pow(8*M*M,0.5)*ppr->a_ini_over_a_today_default * pba->a_today/pba->ncdm_qmax[n_ncdm];
-            }
+            class_call(get_q_max(pba,n_ncdm,ppr->a_ini_over_a_today_default * pba->a_today,M,&qmax),
+            // class_call(get_q_max(pba,n_ncdm,1.,M,&qmax),
+            pba->error_message,
+            pba->error_message);
+
             // printf("right after bug\n");
           }else{
-            for(index_q = 0; index_q < pba->q_size_ncdm[n_ncdm]; index_q++){
-            pba->f_ncdm[n_ncdm][index_q] = 1;//f_ncdm is already included in w_ncdm_bg in the case of standard neutrinos.
+            for(index_q = 0; index_q < pba->q_size_ncdm_bg[n_ncdm]; index_q++){
+            pba->f_ncdm_bg[n_ncdm][index_q] = 1;//f_ncdm is already included in w_ncdm_bg in the case of standard neutrinos.
             }
             qmax = 1; //qmax alrady taken into account when defning integral weights.
             M = pba->M_ncdm[n_ncdm];
@@ -709,13 +707,13 @@ int background_init(
           /* call this function to get rho_ncdm */
           background_ncdm_momenta(pba->q_ncdm_bg[n_ncdm],
                                   pba->w_ncdm_bg[n_ncdm],
-                                  pba->f_ncdm[n_ncdm],
+                                  pba->f_ncdm_bg[n_ncdm],
                                   pba->q_size_ncdm_bg[n_ncdm],
                                   // pba->M_ncdm[n_ncdm],
                                   M,
                                   qmax,
                                   pba->factor_ncdm[n_ncdm],
-                                  0,
+                                  1./(ppr->a_ini_over_a_today_default * pba->a_today)-1.,
                                   n_ncdm,
                                   NULL,
                                   &rho_ncdm_rel,
@@ -731,7 +729,7 @@ int background_init(
              limit, i.e. assuming T_nu=(4/11)^1/3 T_gamma (this comes
              from the definition of N_eff) */
           rho_nu_rel = 56.0/45.0*pow(_PI_,6)*pow(4.0/11.0,4.0/3.0)*_G_/pow(_h_P_,3)/pow(_c_,7)*
-            pow(_Mpc_over_m_,2)*pow(pba->T_cmb*_k_B_,4);
+            pow(_Mpc_over_m_,2)*pow(pba->T_cmb*_k_B_,4)/(pow(ppr->a_ini_over_a_today_default * pba->a_today,4));
 
           printf(" -> ncdm species i=%d sampled with %d (resp. %d) points for purpose of background (resp. perturbation) integration. In the relativistic limit: rho = %e & rho_nu %e, it gives Delta N_eff = %g\n",
                  n_ncdm+1,
@@ -739,7 +737,7 @@ int background_init(
                  pba->q_size_ncdm[n_ncdm],
                  rho_ncdm_rel,
                  rho_nu_rel,
-                 3.046-rho_ncdm_rel/rho_nu_rel);
+                 rho_ncdm_rel/rho_nu_rel);
 
           Neff += rho_ncdm_rel/rho_nu_rel;
         }
@@ -883,9 +881,11 @@ int background_free_input(
       free(pba->q_ncdm_bg[k]);
       free(pba->w_ncdm_bg[k]);
       free(pba->dlnf0_dlnq_ncdm[k]);
+      free(pba->f_ncdm_bg[k]);
       free(pba->f_ncdm[k]);
     }
     free(pba->ncdm_quadrature_strategy);
+    free(pba->ncdm_input_q_size_bg);
     free(pba->ncdm_input_q_size);
     free(pba->ncdm_qmax);
     free(pba->q_ncdm);
@@ -893,6 +893,7 @@ int background_free_input(
     free(pba->q_ncdm_bg);
     free(pba->w_ncdm_bg);
     free(pba->dlnf0_dlnq_ncdm);
+    free(pba->f_ncdm_bg);
     free(pba->f_ncdm);
     free(pba->q_size_ncdm);
     free(pba->q_size_ncdm_bg);
@@ -1319,13 +1320,10 @@ int background_ncdm_distribution(
     }else if(pba->ncdm_background_distribution[n_ncdm]==_fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm]==_majoron_){
       interpolate_T_and_mu_at_z(pba,n_ncdm,z,&T_ncdm,&mu_ncdm);
 
-      if(20*T_ncdm > 3 *pba->m_ncdm_in_eV[n_ncdm]){
-        //obtained from the requirement: Emax = 20*Tncdm.
-        qmax = pow(20*20*T_ncdm*T_ncdm-(pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]),0.5)/(1+z)/pba->ncdm_qmax[n_ncdm];
-      }else{
-        qmax = pow(8*pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm],0.5)/(1+z)/pba->ncdm_qmax[n_ncdm];
-        // printf("qmax %e pba->ncdm_qmax[n_ncdm] %e\n", qmax,pba->ncdm_qmax[n_ncdm]);
-      }
+      class_call(get_q_max(pba,n_ncdm,1./(1+z),pba->m_ncdm_in_eV[n_ncdm],&qmax),
+      pba->error_message,
+      pba->error_message);
+
       eps = sqrt(q*q*(1+z)*(1+z)*qmax*qmax+pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]);//we define q in units of qmax.
 
       if(pba->ncdm_background_distribution[n_ncdm]==_majoron_){
@@ -1350,7 +1348,7 @@ int interpolate_T_and_mu_at_z(struct background *pba,int n_ncdm, double z,double
 
  int last_index;
 
-  if (z > pba->z_maj[pba->len_maj] && z <= pba->z_maj[0]){
+  if (z >= pba->z_maj[pba->len_maj] && z <= pba->z_maj[0]){
 
     if(n_ncdm == pba->entry_is_M_phi){
       /** - interpolate from pre-computed table with array_interpolate() */
@@ -1489,8 +1487,24 @@ int background_ncdm_test_function(
  */
 
 
+int get_q_max(struct background *pba, int n_ncdm, double a, double M,double * qmax){
 
-int interpolate_background_ncdm_distribution(struct background *pba, int n_ncdm, double z) {
+  double T_ncdm;
+  double mu_ncdm;
+  class_call(interpolate_T_and_mu_at_z(pba,n_ncdm,1./a-1.,&T_ncdm,&mu_ncdm),
+  pba->error_message,
+  pba->error_message);
+
+  if(20*T_ncdm > 3 *M){
+    *qmax = pow(20*20*T_ncdm*T_ncdm-(M*M),0.5)*a/pba->ncdm_qmax[n_ncdm];
+  }else{
+    *qmax = pow(8*M*M,0.5)*a/pba->ncdm_qmax[n_ncdm];
+  }
+  return _SUCCESS_;
+}
+
+
+int interpolate_background_ncdm_distribution(struct background *pba, int n_ncdm, double *qtable,double qsize, double z, double *ftable) {
 
 
   int index_q;
@@ -1499,18 +1513,18 @@ int interpolate_background_ncdm_distribution(struct background *pba, int n_ncdm,
   pbadist.n_ncdm = n_ncdm;
   double f0;
   // printf("pbadist.n_ncdm %d\n", pbadist.n_ncdm);
-  for(index_q = 0; index_q < pba->q_size_ncdm_bg[n_ncdm]; index_q++){
+  for(index_q = 0; index_q < qsize; index_q++){
     // printf("here pba->q_ncdm_bg[n_ncdm][index_q] %e !\n",pba->q_ncdm_bg[n_ncdm][index_q]);
 
     class_call(background_ncdm_distribution(
                                      &pbadist,
-                                     pba->q_ncdm_bg[n_ncdm][index_q],
+                                     qtable[index_q],
                                      &f0,
                                      z),
                  pba->error_message,
                  pba->error_message);
     // printf("f0 %e\n",f0);
-    pba->f_ncdm[n_ncdm][index_q]= f0;
+    ftable[index_q]= f0;
   }
 
   return _SUCCESS_;
@@ -1536,6 +1550,7 @@ int background_ncdm_init(
   class_alloc(pba->q_ncdm_bg, sizeof(double*)*pba->N_ncdm,pba->error_message);
   class_alloc(pba->w_ncdm_bg, sizeof(double*)*pba->N_ncdm,pba->error_message);
   class_alloc(pba->dlnf0_dlnq_ncdm, sizeof(double*)*pba->N_ncdm,pba->error_message);
+  class_alloc(pba->f_ncdm_bg, sizeof(double*)*pba->N_ncdm,pba->error_message);
   class_alloc(pba->f_ncdm, sizeof(double*)*pba->N_ncdm,pba->error_message);
 
   /* Allocate pointers: */
@@ -1724,7 +1739,7 @@ int background_ncdm_init(
     }
     else{
       /** Manual q-sampling for this species. Same sampling used for both perturbation and background sampling, since this will usually be a high precision setting anyway */
-      pba->q_size_ncdm_bg[k] = pba->ncdm_input_q_size[k];
+      pba->q_size_ncdm_bg[k] = pba->ncdm_input_q_size_bg[k];
       pba->q_size_ncdm[k] = pba->ncdm_input_q_size[k];
       class_alloc(pba->q_ncdm_bg[k],pba->q_size_ncdm_bg[k]*sizeof(double),pba->error_message);
       class_alloc(pba->w_ncdm_bg[k],pba->q_size_ncdm_bg[k]*sizeof(double),pba->error_message);
@@ -1742,10 +1757,19 @@ int background_ncdm_init(
                                       pba->error_message),
                  pba->error_message,
                  pba->error_message);
-      for (index_q=0; index_q<pba->q_size_ncdm[k]; index_q++) {
-        pba->q_ncdm_bg[k][index_q] = pba->q_ncdm[k][index_q];
-        pba->w_ncdm_bg[k][index_q] = pba->w_ncdm[k][index_q];
-      }
+      class_call(get_qsampling_manual(pba->q_ncdm_bg[k],
+                                      pba->w_ncdm_bg[k],
+                                      pba->q_size_ncdm_bg[k],
+                                      pba->ncdm_qmax[k],
+                                      pba->ncdm_quadrature_strategy[k],
+                                      pbadist.q,
+                                      pbadist.tablesize,
+                                      background_ncdm_distribution,
+                                      &pbadist,
+                                      pba->error_message),
+                 pba->error_message,
+                 pba->error_message);
+
       /** - in verbose mode, inform user of number of sampled momenta
           for background quantities */
       if (pba->background_verbose > 0)
@@ -1757,21 +1781,21 @@ int background_ncdm_init(
     class_alloc(pba->dlnf0_dlnq_ncdm[k],
                 pba->q_size_ncdm[k]*sizeof(double),
                 pba->error_message);
+    class_alloc(pba->f_ncdm_bg[k],
+                pba->q_size_ncdm_bg[k]*sizeof(double),
+                pba->error_message);
     class_alloc(pba->f_ncdm[k],
                 pba->q_size_ncdm[k]*sizeof(double),
                 pba->error_message);
 
 
+    if(pba->ncdm_background_distribution[k] == _fermi_dirac_){
     for (index_q=0; index_q<pba->q_size_ncdm[k]; index_q++) {
       q = pba->q_ncdm[k][index_q];
       class_call(background_ncdm_distribution(&pbadist,q,&f0,0),
                  pba->error_message,pba->error_message);
 
       //we correct the integration weights if we deal with majorons
-      if(pba->M_phi>0){
-        pba->w_ncdm_bg[k][index_q] /= f0;
-        pba->w_ncdm[k][index_q] /= f0;
-      }
       //Loop to find appropriate dq:
       for(tolexp=_PSD_DERIVATIVE_EXP_MIN_; tolexp<_PSD_DERIVATIVE_EXP_MAX_; tolexp++){
 
@@ -1805,20 +1829,39 @@ int background_ncdm_init(
         pba->dlnf0_dlnq_ncdm[k][index_q] = -q; /* valid for whatever f0 with exponential tail in exp(-q) */
       else
         pba->dlnf0_dlnq_ncdm[k][index_q] = q/f0*df0dq;
+      printf("index_q %d q/f0*df0dq %e\n", index_q,q/f0*df0dq);
+      }
 
-        pba->f_ncdm[k][index_q] = f0;
-    }
-    if(pba->ncdm_background_distribution[k] == _fermi_dirac_){
+
+
+
+
       pba->factor_ncdm[k]=pba->deg_ncdm[k]*4*_PI_*pow(pba->T_cmb*pba->T_ncdm[k]*_k_B_,4)*8*_PI_*_G_
         /3./pow(_h_P_/2./_PI_,3)/pow(_c_,7)*_Mpc_over_m_*_Mpc_over_m_;//energy is in unit of T_ncdm
+
+
+
     }else if(pba->ncdm_background_distribution[k] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[k] == _majoron_){
+
+      for (index_q=0; index_q<pba->q_size_ncdm[k]; index_q++) {
+        q = pba->q_ncdm[k][index_q];
+        class_call(background_ncdm_distribution(&pbadist,q,&f0,0),
+                   pba->error_message,pba->error_message);
+        pba->w_ncdm[k][index_q] /= f0;
+      }
+      for (index_q=0; index_q<pba->q_size_ncdm_bg[k]; index_q++) {
+        q = pba->q_ncdm_bg[k][index_q];
+        class_call(background_ncdm_distribution(&pbadist,q,&f0,0),
+                   pba->error_message,pba->error_message);
+        pba->w_ncdm_bg[k][index_q] /= f0;
+      }
+      //we will compute f, and dlnf0 later, as a function of time.
+
       pba->factor_ncdm[k]=pba->deg_ncdm[k]*4*_PI_*pow(_eV_,4)*8*_PI_*_G_
         /3./pow(_h_P_/2./_PI_,3)/pow(_c_,7)*_Mpc_over_m_*_Mpc_over_m_; //in this case, units are eV. we convert to Mpc.
+
+
     }
-
-
-    printf("old factor %e new factor %e \n", pba->deg_ncdm[k]*4*_PI_*pow(pba->T_cmb*pba->T_ncdm[k]*_k_B_,4)*8*_PI_*_G_
-      /3./pow(_h_P_/2./_PI_,3)/pow(_c_,7)*_Mpc_over_m_*_Mpc_over_m_,pba->factor_ncdm[k]);
 
 
     /* If allocated, deallocate interpolation table:  */
@@ -1942,20 +1985,15 @@ int background_ncdm_M_from_Omega(
   M = 0.0;
 
   if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
-    class_call(interpolate_background_ncdm_distribution(pba,n_ncdm,0),
+    class_call(interpolate_background_ncdm_distribution(pba,n_ncdm,pba->q_ncdm_bg[n_ncdm],pba->q_size_ncdm_bg[n_ncdm],0.0,pba->f_ncdm_bg[n_ncdm]),
     pba->error_message,
     pba->error_message);
-    class_call(interpolate_T_and_mu_at_z(pba,n_ncdm,0,&T_ncdm,&mu_ncdm),
+    class_call(get_q_max(pba,n_ncdm,1.,M,&qmax),
     pba->error_message,
     pba->error_message);
-    if(20*T_ncdm > 3 *M){
-      qmax = pow(20*20*T_ncdm*T_ncdm-(M*M),0.5)/pba->ncdm_qmax[n_ncdm];
-    }else{
-      qmax = pow(8*M*M,0.5)/pba->ncdm_qmax[n_ncdm];
-    }
   }else{
-    for(index_q = 0; index_q < pba->q_size_ncdm[n_ncdm]; index_q++){
-    pba->f_ncdm[n_ncdm][index_q] = 1;//f_ncdm is already included in w_ncdm_bg in the case of standard neutrinos.
+    for(index_q = 0; index_q < pba->q_size_ncdm_bg[n_ncdm]; index_q++){
+    pba->f_ncdm_bg[n_ncdm][index_q] = 1;//f_ncdm is already included in w_ncdm_bg in the case of standard neutrinos.
     }
     qmax=1;
   }
@@ -1963,7 +2001,7 @@ int background_ncdm_M_from_Omega(
 
   background_ncdm_momenta(pba->q_ncdm_bg[n_ncdm],
                           pba->w_ncdm_bg[n_ncdm],
-                          pba->f_ncdm[n_ncdm],
+                          pba->f_ncdm_bg[n_ncdm],
                           pba->q_size_ncdm_bg[n_ncdm],
                           M,
                           qmax,
@@ -1986,21 +2024,16 @@ int background_ncdm_M_from_Omega(
   for (iter=1; iter<=maxiter; iter++){
 
     if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
-      class_call(interpolate_background_ncdm_distribution(pba,n_ncdm,0),
+      class_call(interpolate_background_ncdm_distribution(pba,n_ncdm,pba->q_ncdm_bg[n_ncdm],pba->q_size_ncdm_bg[n_ncdm],0.0,pba->f_ncdm_bg[n_ncdm]),
       pba->error_message,
       pba->error_message);
-      class_call(interpolate_T_and_mu_at_z(pba,n_ncdm,0,&T_ncdm,&mu_ncdm),
+      class_call(get_q_max(pba,n_ncdm,1.,M,&qmax),
       pba->error_message,
       pba->error_message);
-      if(20*T_ncdm > 3 *M){
-        qmax = pow(20*20*T_ncdm*T_ncdm-(M*M),0.5)/pba->ncdm_qmax[n_ncdm];
-      }else{
-        qmax = pow(8*M*M,0.5)/pba->ncdm_qmax[n_ncdm];
-      }
       //need to check units of M.
     }else{
-      for(index_q = 0; index_q < pba->q_size_ncdm[n_ncdm]; index_q++){
-      pba->f_ncdm[n_ncdm][index_q] = 1;//f_ncdm is already included in w_ncdm_bg in the case of standard neutrinos.
+      for(index_q = 0; index_q < pba->q_size_ncdm_bg[n_ncdm]; index_q++){
+      pba->f_ncdm_bg[n_ncdm][index_q] = 1;//f_ncdm is already included in w_ncdm_bg in the case of standard neutrinos.
       }
       qmax =1;
     }
@@ -2009,7 +2042,7 @@ int background_ncdm_M_from_Omega(
     /* Newton iteration. First get relevant quantities at M: */
     background_ncdm_momenta(pba->q_ncdm_bg[n_ncdm],
                             pba->w_ncdm_bg[n_ncdm],
-                            pba->f_ncdm[n_ncdm],
+                            pba->f_ncdm_bg[n_ncdm],
                             pba->q_size_ncdm_bg[n_ncdm],
                             M,
                             qmax,
@@ -2405,21 +2438,16 @@ int background_initial_conditions(
       for (n_ncdm=0; n_ncdm<pba->N_ncdm; n_ncdm++) {
 
         if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
-          class_call(interpolate_background_ncdm_distribution(pba,n_ncdm,1./a-1.),
-          pba->error_message,
-          pba->error_message);
-          class_call(interpolate_T_and_mu_at_z(pba,n_ncdm,1./a-1.,&T_ncdm,&mu_ncdm),
+          class_call(interpolate_background_ncdm_distribution(pba,n_ncdm,pba->q_ncdm_bg[n_ncdm],pba->q_size_ncdm_bg[n_ncdm],1./a-1,pba->f_ncdm_bg[n_ncdm]),
           pba->error_message,
           pba->error_message);
           M = pba->m_ncdm_in_eV[n_ncdm];
-          if(20*T_ncdm > 3 *M){
-            qmax = pow(20*20*T_ncdm*T_ncdm-(M*M),0.5)*a/pba->ncdm_qmax[n_ncdm];
-          }else{
-            qmax = pow(8*M*M,0.5)*a/pba->ncdm_qmax[n_ncdm];
-          }
+          class_call(get_q_max(pba,n_ncdm,a,M,&qmax),
+          pba->error_message,
+          pba->error_message);
         }else{
-          for(index_q = 0; index_q < pba->q_size_ncdm[n_ncdm]; index_q++){
-          pba->f_ncdm[n_ncdm][index_q] = 1;//f_ncdm is already included in w_ncdm_bg in the case of standard neutrinos.
+          for(index_q = 0; index_q < pba->q_size_ncdm_bg[n_ncdm]; index_q++){
+          pba->f_ncdm_bg[n_ncdm][index_q] = 1;//f_ncdm is already included in w_ncdm_bg in the case of standard neutrinos.
           }
           M = pba->M_ncdm[n_ncdm];
           qmax = 1;
@@ -2429,7 +2457,7 @@ int background_initial_conditions(
 
         class_call(background_ncdm_momenta(pba->q_ncdm_bg[n_ncdm],
                                            pba->w_ncdm_bg[n_ncdm],
-                                           pba->f_ncdm[n_ncdm],
+                                           pba->f_ncdm_bg[n_ncdm],
                                            pba->q_size_ncdm_bg[n_ncdm],
                                            M,
                                            qmax,
@@ -3169,7 +3197,8 @@ int background_MB_approx(
 
   GammaPhi = pba->Gamma_phi[0]; // Not yet generalized to deal with multiple neutrinos....
   for (int n_ncdm=0; n_ncdm < pba->N_ncdm; n_ncdm++) {
-        if(pba->ncdm_background_distribution[n_ncdm]==_majoron_){mMaj = pba->m_ncdm_in_eV[n_ncdm];}
+        // if(pba->ncdm_background_distribution[n_ncdm]==_majoron_){mMaj = pba->m_ncdm_in_eV[n_ncdm];}
+        if(n_ncdm == pba->entry_is_M_phi){mMaj = pba->m_ncdm_in_eV[n_ncdm];}
         else{Mnu = pba->m_ncdm_in_eV[n_ncdm];}
   }
 
