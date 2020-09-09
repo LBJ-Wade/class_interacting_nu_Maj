@@ -378,8 +378,11 @@ int background_functions(
       class_call(interpolate_T_and_mu_at_z(pba,n_ncdm,1./a_rel-1.,&T_ncdm,&mu_ncdm),
       pba->error_message,
       pba->error_message);
-      pvecback[pba->index_bg_T_ncdm1+n_ncdm] = T_ncdm*_eV_/_k_B_/pba->T_cmb;//Tncdm / Tcmb
-      pvecback[pba->index_bg_Mu_ncdm1+n_ncdm] = mu_ncdm*_eV_/_k_B_/pba->T_cmb;//mu_ncdm / Tcmb
+      // pvecback[pba->index_bg_T_ncdm1+n_ncdm] = T_ncdm*_eV_/_k_B_/pba->T_cmb;//Tncdm / Tcmb
+      pvecback[pba->index_bg_T_ncdm1+n_ncdm] = T_ncdm;//Tncdm [eV]
+      // pvecback[pba->index_bg_Mu_ncdm1+n_ncdm] = mu_ncdm*_eV_/_k_B_/pba->T_cmb;//mu_ncdm / Tcmb
+      pvecback[pba->index_bg_Mu_ncdm1+n_ncdm] = mu_ncdm;//mu_ncdm [eV]
+      // printf("n_ncdm %d mu_ncdm %e\n",n_ncdm,mu_ncdm);
       M = pba->m_ncdm_in_eV[n_ncdm];
       class_call(get_q_max(pba,n_ncdm,a_rel,M,&qmax),
       pba->error_message,
@@ -390,8 +393,8 @@ int background_functions(
       }
       qmax=1;
       M = pba->M_ncdm[n_ncdm];
-      pvecback[pba->index_bg_T_ncdm1+n_ncdm] = pba->T_ncdm[n_ncdm]/a_rel;
-      pvecback[pba->index_bg_Mu_ncdm1+n_ncdm] = pba->T_ncdm[n_ncdm]*pba->ksi_ncdm[n_ncdm];
+      pvecback[pba->index_bg_T_ncdm1+n_ncdm] = pba->T_ncdm[n_ncdm]/a_rel*pba->T_cmb*_k_B_/_eV_; //converts to eV
+      pvecback[pba->index_bg_Mu_ncdm1+n_ncdm] = pba->T_ncdm[n_ncdm]*pba->ksi_ncdm[n_ncdm]*pba->T_cmb*_k_B_/_eV_; //converts to eV
     }
 
 
@@ -731,7 +734,7 @@ int background_init(
           rho_nu_rel = 56.0/45.0*pow(_PI_,6)*pow(4.0/11.0,4.0/3.0)*_G_/pow(_h_P_,3)/pow(_c_,7)*
             pow(_Mpc_over_m_,2)*pow(pba->T_cmb*_k_B_,4)/(pow(ppr->a_ini_over_a_today_default * pba->a_today,4));
 
-          printf(" -> ncdm species i=%d sampled with %d (resp. %d) points for purpose of background (resp. perturbation) integration. In the relativistic limit: rho = %e & rho_nu %e, it gives Delta N_eff = %g\n",
+          printf(" -> ncdm species i=%d sampled with %d (resp. %d) points for purpose of background (resp. perturbation) integration. In the relativistic limit:rho = %e & rho_nu %e, it gives Delta N_eff = %g\n",
                  n_ncdm+1,
                  pba->q_size_ncdm_bg[n_ncdm],
                  pba->q_size_ncdm[n_ncdm],
@@ -1016,7 +1019,11 @@ int background_indices(
   class_define_index(pba->index_bg_p_ncdm1,pba->has_ncdm,index_bg,pba->N_ncdm);
   class_define_index(pba->index_bg_pseudo_p_ncdm1,pba->has_ncdm,index_bg,pba->N_ncdm);
   class_define_index(pba->index_bg_T_ncdm1,pba->has_ncdm,index_bg,pba->N_ncdm);
+  class_define_index(pba->index_bg_dT_ncdm1,pba->has_ncdm,index_bg,pba->N_ncdm);
+  class_define_index(pba->index_bg_ddT_ncdm1,pba->has_ncdm,index_bg,pba->N_ncdm);
   class_define_index(pba->index_bg_Mu_ncdm1,pba->has_ncdm,index_bg,pba->N_ncdm);
+  class_define_index(pba->index_bg_dMu_ncdm1,pba->has_ncdm,index_bg,pba->N_ncdm);
+  class_define_index(pba->index_bg_ddMu_ncdm1,pba->has_ncdm,index_bg,pba->N_ncdm);
 
   /* - index for dcdm */
   class_define_index(pba->index_bg_rho_dcdm,pba->has_dcdm,index_bg,1);
@@ -1318,26 +1325,27 @@ int background_ncdm_distribution(
         }
       } /* end of region not used, but shown as an example */
     }else if(pba->ncdm_background_distribution[n_ncdm]==_fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm]==_majoron_){
+      //VP: here we define the background distribution
       interpolate_T_and_mu_at_z(pba,n_ncdm,z,&T_ncdm,&mu_ncdm);
 
       class_call(get_q_max(pba,n_ncdm,1./(1+z),pba->m_ncdm_in_eV[n_ncdm],&qmax),
       pba->error_message,
       pba->error_message);
 
-      eps = sqrt(q*q*(1+z)*(1+z)*qmax*qmax+pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]);//we define q in units of qmax.
+      eps = sqrt(q*q*qmax*qmax*(1+z)*(1+z) + pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]);
 
       if(pba->ncdm_background_distribution[n_ncdm]==_majoron_){
-        *f0=1.0/pow(2*_PI_,3)*(1./(exp((eps-mu_ncdm)/T_ncdm)-1));
+        *f0=1.0/pow(2*_PI_,3)*(1./(exp((eps-mu_ncdm)/T_ncdm)-1));//bose-einstein
       }
       else{
-        *f0=1.0/pow(2*_PI_,3)*(1./(exp((eps-mu_ncdm)/T_ncdm)+1));
+        *f0=1.0/pow(2*_PI_,3)*(1./(exp((q*qmax*(1+z)-mu_ncdm)/T_ncdm)+1)); //frozen fermi-dirac distribution
       }
 
-      if(*f0 == 0)*f0 = 1e-40; //to avoid bug; eps/T_ncdm can become too big for the exponential when m>>T.
-      // printf("here (1+z) %e ncdm %d mu_ncdm %e Tnu %e q %e eps %e Mncm %e  exp((eps-mu_ncdm)/T_ncdm) %e f0 %e\n",1+z,n_ncdm,mu_ncdm,T_ncdm, q,eps,pba->m_ncdm_in_eV[n_ncdm],exp((eps-mu_ncdm)/T_ncdm),*f0);
+      if(*f0 == 0)*f0 = 1e-40; //to avoid bug; eps/T_ncdm can become too big for the exponential when m>>T. we could probably improve that but it works.
+      // if(*f0 < 0)printf("n_ncdm %d *f0 %e z %e eps %e mu_ncdm %e T_ncdm %e exp((eps-mu_ncdm)/T_ncdm) %e\n",n_ncdm,*f0,z,eps,mu_ncdm,T_ncdm,exp((eps-mu_ncdm)/T_ncdm));
+      // if(1+z<1.5 && n_ncdm == 0)printf("here (1+z) %e ncdm %d mu_ncdm %e Tnu %e q %e eps %e Mncm %e  exp((eps-mu_ncdm)/T_ncdm) %e f0 %e\n",1+z,n_ncdm,mu_ncdm,T_ncdm, q,eps,pba->m_ncdm_in_eV[n_ncdm],exp((eps-mu_ncdm)/T_ncdm),*f0);
 
       }
-      // printf("z %e *f0 %e\n",z,*f0);
     }
 
   return _SUCCESS_;
@@ -1345,8 +1353,11 @@ int background_ncdm_distribution(
 
 
 int interpolate_T_and_mu_at_z(struct background *pba,int n_ncdm, double z,double *T_ncdm, double *mu_ncdm){
-
+  //VP:This function is used to interpolate and extrapolate T and mu
+  //First: check if spline interpolation is possible
+  //If not: extrapolate using analytical formulae
  int last_index;
+ double z_nrel_maj = -1,z_nrel_ncdm = -1; //dummy value for condition
 
   if (z >= pba->z_maj[pba->len_maj] && z <= pba->z_maj[0]){
 
@@ -1379,8 +1390,6 @@ int interpolate_T_and_mu_at_z(struct background *pba,int n_ncdm, double z,double
                  pba->error_message,
                  pba->error_message);
 
-       // printf("nu: z %e T_ncdm %e mu_ncdm %e\n", z,T_ncdm,mu_ncdm);
-
     }else{
       /** - interpolate from pre-computed table with array_interpolate() */
       class_call(array_interpolate_spline(
@@ -1410,41 +1419,46 @@ int interpolate_T_and_mu_at_z(struct background *pba,int n_ncdm, double z,double
                  pba->error_message,
                  pba->error_message);
     }
-
-
-    // printf("maj: z %e T_ncdm %e mu_ncdm %e\n", z,T_ncdm,mu_ncdm);
-      // printf("good! eps %e forpsi_at_eps %e\n",eps, *forpsi_at_eps);
-
   }else if(z > pba->z_maj[0]){
+        //at early times
         if(n_ncdm == pba->entry_is_M_phi){
-          *mu_ncdm = (pba->Mu_maj[0]-pba->m_ncdm_in_eV[n_ncdm])*(1+z)/(1+pba->z_maj[0]);
+          // *mu_ncdm = (pba->Mu_maj[0]-pba->m_ncdm_in_eV[n_ncdm])*(1+z)/(1+pba->z_maj[0]); //should we take the mass into account?
+          *mu_ncdm = (pba->Mu_maj[0])*(1+z)/(1+pba->z_maj[0]);
           *T_ncdm = pba->T_maj[0]*(1+z)/(1+pba->z_maj[0]);
         }
         else{
-          *mu_ncdm = (pba->Mu_nu[0]-pba->m_ncdm_in_eV[n_ncdm])*(1+z)/(1+pba->z_maj[0]);
+          // *mu_ncdm = (pba->Mu_nu[0]-pba->m_ncdm_in_eV[n_ncdm])*(1+z)/(1+pba->z_maj[0]);
+          *mu_ncdm = (pba->Mu_nu[0])*(1+z)/(1+pba->z_maj[0]);
           *T_ncdm = pba->T_nu[0]*(1+z)/(1+pba->z_maj[0]);
         }
   }
-  else{
+  else{//at late times
       if(n_ncdm == pba->entry_is_M_phi){
         //assume relativistic:
         *T_ncdm = pba->T_maj[pba->len_maj]*(1+z)/(1+pba->z_maj[pba->len_maj]);
-        *mu_ncdm = (pba->Mu_maj[pba->len_maj]-pba->m_ncdm_in_eV[n_ncdm])*(1+z)/(1+pba->z_maj[pba->len_maj]);
-        if(*T_ncdm < pba->m_ncdm_in_eV[n_ncdm]){
+        // *mu_ncdm = (pba->Mu_maj[pba->len_maj]-pba->m_ncdm_in_eV[n_ncdm])*(1+z)/(1+pba->z_maj[pba->len_maj]);
+        *mu_ncdm = (pba->Mu_maj[pba->len_maj])*(1+z)/(1+pba->z_maj[pba->len_maj]);
+        if(*T_ncdm < 3./20*pba->m_ncdm_in_eV[n_ncdm]){
+          if(z_nrel_maj < 0)z_nrel_maj = z;
           //check that we were correct.
-          *mu_ncdm = (pba->Mu_maj[pba->len_maj]-pba->m_ncdm_in_eV[n_ncdm])*pow((1+z)/(1+pba->z_maj[pba->len_maj]),2);
-          *T_ncdm = pba->T_maj[pba->len_maj]*pow((1+z)/(1+pba->z_maj[pba->len_maj]),2);
+          // *mu_ncdm = (pba->Mu_maj[pba->len_maj])*(1+z_nrel_maj)/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+z_nrel_maj),2);//if we include the mass leads to big discontinuity.//we decided that at late times we don't care about mu because rho is so small.
+          *T_ncdm = pba->T_maj[pba->len_maj]*(1+z_nrel_maj)/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+z_nrel_maj),2);
         }
+
+      // printf("z %e \n",z,*T_ncdm/pba->m_ncdm_in_eV[n_ncdm]);
+
 
     }else{
       //assume relativistic:
       *T_ncdm = pba->T_nu[pba->len_maj]*(1+z)/(1+pba->z_maj[pba->len_maj]);
-      *mu_ncdm = (pba->Mu_nu[pba->len_maj]-pba->m_ncdm_in_eV[n_ncdm])*(1+z)/(1+pba->z_maj[pba->len_maj]);
-      if(*T_ncdm < pba->m_ncdm_in_eV[n_ncdm]){
-        //check that we were correct.
-        *mu_ncdm = (pba->Mu_nu[pba->len_maj]-pba->m_ncdm_in_eV[n_ncdm])*pow((1+z)/(1+pba->z_maj[pba->len_maj]),2);
-        *T_ncdm = pba->T_nu[pba->len_maj]*pow((1+z)/(1+pba->z_maj[pba->len_maj]),2);
-      }
+      *mu_ncdm = (pba->Mu_nu[pba->len_maj])*(1+z)/(1+pba->z_maj[pba->len_maj]);
+        if(*T_ncdm < 3./20*pba->m_ncdm_in_eV[n_ncdm]){
+          if(z_nrel_ncdm < 0)z_nrel_ncdm = z;
+          //check that we were correct.
+          *mu_ncdm = (pba->Mu_nu[pba->len_maj])*(1+z_nrel_ncdm)/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+z_nrel_ncdm),2);//if we include the mass leads to big discontinuity; is that ok?
+          // *mu_ncdm = (pba->Mu_nu[pba->len_maj]-pba->m_ncdm_in_eV[n_ncdm])*(1+z_nrel_ncdm)/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+z_nrel_ncdm),2);
+          *T_ncdm = pba->T_nu[pba->len_maj]*(1+z_nrel_ncdm)/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+z_nrel_ncdm),2);
+        }
     }
   }
 
@@ -1488,33 +1502,35 @@ int background_ncdm_test_function(
 
 
 int get_q_max(struct background *pba, int n_ncdm, double a, double M,double * qmax){
-
+  //VP: extract the maximum comoving momentum at a
+  //minimum is always 0.
   double T_ncdm;
   double mu_ncdm;
   class_call(interpolate_T_and_mu_at_z(pba,n_ncdm,1./a-1.,&T_ncdm,&mu_ncdm),
   pba->error_message,
   pba->error_message);
-
   if(20*T_ncdm > 3 *M){
-    *qmax = pow(20*20*T_ncdm*T_ncdm-(M*M),0.5)*a/pba->ncdm_qmax[n_ncdm];
+    *qmax = pow(20*20*T_ncdm*T_ncdm-(M*M),0.5)*a;
   }else{
-    *qmax = pow(8*M*M,0.5)*a/pba->ncdm_qmax[n_ncdm];
+    *qmax = pow(3*3*M*M-(M*M),0.5)*a;
+    // *qmax = 20*T_ncdm*a;
   }
+
   return _SUCCESS_;
 }
 
 
 int interpolate_background_ncdm_distribution(struct background *pba, int n_ncdm, double *qtable,double qsize, double z, double *ftable) {
-
+  //VP: this function fills a table of f_ncdm(q) at a.
+  //the qtable is given in unit of qmax.
+  //qmax is then computed within background_ncdm_distribution.
 
   int index_q;
   struct background_parameters_for_distributions pbadist;
   pbadist.pba = pba;
   pbadist.n_ncdm = n_ncdm;
   double f0;
-  // printf("pbadist.n_ncdm %d\n", pbadist.n_ncdm);
   for(index_q = 0; index_q < qsize; index_q++){
-    // printf("here pba->q_ncdm_bg[n_ncdm][index_q] %e !\n",pba->q_ncdm_bg[n_ncdm][index_q]);
 
     class_call(background_ncdm_distribution(
                                      &pbadist,
@@ -1523,7 +1539,6 @@ int interpolate_background_ncdm_distribution(struct background *pba, int n_ncdm,
                                      z),
                  pba->error_message,
                  pba->error_message);
-    // printf("f0 %e\n",f0);
     ftable[index_q]= f0;
   }
 
@@ -1738,6 +1753,7 @@ int background_ncdm_init(
                pba->q_size_ncdm_bg[k]);
     }
     else{
+      //VP: for majoron and our neutrinos, we will always be here.
       /** Manual q-sampling for this species. Same sampling used for both perturbation and background sampling, since this will usually be a high precision setting anyway */
       pba->q_size_ncdm_bg[k] = pba->ncdm_input_q_size_bg[k];
       pba->q_size_ncdm[k] = pba->ncdm_input_q_size[k];
@@ -1829,7 +1845,7 @@ int background_ncdm_init(
         pba->dlnf0_dlnq_ncdm[k][index_q] = -q; /* valid for whatever f0 with exponential tail in exp(-q) */
       else
         pba->dlnf0_dlnq_ncdm[k][index_q] = q/f0*df0dq;
-      printf("index_q %d q/f0*df0dq %e\n", index_q,q/f0*df0dq);
+      // printf("index_q %d q/f0*df0dq %e\n", index_q,q/f0*df0dq);
       }
 
 
@@ -1842,25 +1858,9 @@ int background_ncdm_init(
 
 
     }else if(pba->ncdm_background_distribution[k] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[k] == _majoron_){
-
-      for (index_q=0; index_q<pba->q_size_ncdm[k]; index_q++) {
-        q = pba->q_ncdm[k][index_q];
-        class_call(background_ncdm_distribution(&pbadist,q,&f0,0),
-                   pba->error_message,pba->error_message);
-        pba->w_ncdm[k][index_q] /= f0;
-      }
-      for (index_q=0; index_q<pba->q_size_ncdm_bg[k]; index_q++) {
-        q = pba->q_ncdm_bg[k][index_q];
-        class_call(background_ncdm_distribution(&pbadist,q,&f0,0),
-                   pba->error_message,pba->error_message);
-        pba->w_ncdm_bg[k][index_q] /= f0;
-      }
-      //we will compute f, and dlnf0 later, as a function of time.
-
+      //VP: we will compute dlnf0 later, as a function of time.
       pba->factor_ncdm[k]=pba->deg_ncdm[k]*4*_PI_*pow(_eV_,4)*8*_PI_*_G_
         /3./pow(_h_P_/2./_PI_,3)/pow(_c_,7)*_Mpc_over_m_*_Mpc_over_m_; //in this case, units are eV. we convert to Mpc.
-
-
     }
 
 
@@ -1934,11 +1934,11 @@ int background_ncdm_momenta(
   for (index_q=0; index_q<qsize; index_q++) {
 
     /* squared momentum */
+    //VP: q in units of qmax; and so is wvec (which is dq/qmax).
     q2 = qvec[index_q]*qvec[index_q]*qmax*qmax;
 
     epsilon = sqrt(q2+M*M/(1.+z)/(1.+z));
 
-    // printf("q2 %e, epsilon %e wvec[index_q] %e fvec[index_q] %e\n", q2,epsilon,wvec[index_q],fvec[index_q]);
     /* integrand of the various quantities */
     if (n!=NULL) *n += q2*wvec[index_q]*qmax*fvec[index_q];
     if (rho!=NULL) *rho += q2*epsilon*wvec[index_q]*qmax*fvec[index_q];
@@ -1951,11 +1951,9 @@ int background_ncdm_momenta(
   if (n!=NULL) *n *= factor2/(1.+z);
   if (rho!=NULL) {
     *rho *= factor2;
-    // printf("z %e rho %e factor2 %e\n", z,*rho,factor2);
   }
   if (p!=NULL) {
     *p *= factor2;
-    // printf("z%e p %e factor2 %e\n", z, *p, factor2);
   }
   if (drho_dM!=NULL) *drho_dM *= factor2;
   if (pseudo_p!=NULL) *pseudo_p *=factor2;
@@ -2107,7 +2105,7 @@ int background_solve(
   /* vector of all background quantities */
   double * pvecback;
   /* necessary for calling array_interpolate(), but never used */
-  int last_index=0;
+  int last_index=0, n_ncdm;
   /* comoving radius coordinate in Mpc (equal to conformal distance in flat case) */
   double comoving_radius=0.;
 
@@ -2311,6 +2309,66 @@ int background_solve(
              gTable.error_message,
              pba->error_message);
 
+   if(pba->has_ncdm){
+     for (n_ncdm=0; n_ncdm<pba->N_ncdm; n_ncdm++) {
+
+       // if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
+
+
+       /** - ---> second derivative with respect to tau of cb2 */
+       class_call(array_spline_table_line_to_line(pba->tau_table,
+                                                  pba->bt_size,
+                                                  pba->background_table,
+                                                  pba->bg_size,
+                                                  pba->index_bg_T_ncdm1+n_ncdm,
+                                                  pba->index_bg_ddT_ncdm1+n_ncdm,
+                                                  _SPLINE_EST_DERIV_,
+                                                  pba->error_message),
+                  pba->error_message,
+                  pba->error_message);
+
+
+       /** - ---> first derivative with respect to tau of cb2 (using spline interpolation) */
+       class_call(array_derive_spline_table_line_to_line(pba->tau_table,
+                                                         pba->bt_size,
+                                                         pba->background_table,
+                                                         pba->bg_size,
+                                                         pba->index_bg_T_ncdm1+n_ncdm,
+                                                         pba->index_bg_ddT_ncdm1+n_ncdm,
+                                                         pba->index_bg_dT_ncdm1+n_ncdm,
+                                                         pba->error_message),
+                  pba->error_message,
+                  pba->error_message);
+       /** - ---> second derivative with respect to tau of cb2 */
+       class_call(array_spline_table_line_to_line(pba->tau_table,
+                                                  pba->bt_size,
+                                                  pba->background_table,
+                                                  pba->bg_size,
+                                                  pba->index_bg_Mu_ncdm1+n_ncdm,
+                                                  pba->index_bg_ddMu_ncdm1+n_ncdm,
+                                                  _SPLINE_EST_DERIV_,
+                                                  pba->error_message),
+                  pba->error_message,
+                  pba->error_message);
+
+
+       /** - ---> first derivative with respect to tau of cb2 (using spline interpolation) */
+       class_call(array_derive_spline_table_line_to_line(pba->tau_table,
+                                                         pba->bt_size,
+                                                         pba->background_table,
+                                                         pba->bg_size,
+                                                         pba->index_bg_Mu_ncdm1+n_ncdm,
+                                                         pba->index_bg_ddMu_ncdm1+n_ncdm,
+                                                         pba->index_bg_dMu_ncdm1+n_ncdm,
+                                                         pba->error_message),
+                  pba->error_message,
+                  pba->error_message);
+     // }
+    }
+   }
+
+
+
   /** - fill tables of second derivatives (in view of spline interpolation) */
   class_call(array_spline_table_lines(pba->z_table,
                                       pba->bt_size,
@@ -2331,6 +2389,11 @@ int background_solve(
                                       pba->error_message),
              pba->error_message,
              pba->error_message);
+
+
+
+
+
 
   /** - compute remaining "related parameters" */
 
@@ -2733,7 +2796,11 @@ int background_output_titles(struct background * pba,
       class_store_columntitle(titles,tmp,_TRUE_);
       sprintf(tmp,"(.)T_ncdm[%d]",n);
       class_store_columntitle(titles,tmp,_TRUE_);
+      sprintf(tmp,"(.)dT_ncdm[%d]",n);
+      class_store_columntitle(titles,tmp,_TRUE_);
       sprintf(tmp,"(.)mu_ncdm[%d]",n);
+      class_store_columntitle(titles,tmp,_TRUE_);
+      sprintf(tmp,"(.)dmu_ncdm[%d]",n);
       class_store_columntitle(titles,tmp,_TRUE_);
     }
   }
@@ -2796,7 +2863,9 @@ int background_output_data(
         class_store_double(dataptr,pvecback[pba->index_bg_p_ncdm1+n],_TRUE_,storeidx);
         class_store_double(dataptr,pvecback[pba->index_bg_pseudo_p_ncdm1+n],_TRUE_,storeidx);
         class_store_double(dataptr,pvecback[pba->index_bg_T_ncdm1+n],_TRUE_,storeidx);
+        class_store_double(dataptr,pvecback[pba->index_bg_dT_ncdm1+n],_TRUE_,storeidx);
         class_store_double(dataptr,pvecback[pba->index_bg_Mu_ncdm1+n],_TRUE_,storeidx);
+        class_store_double(dataptr,pvecback[pba->index_bg_dMu_ncdm1+n],_TRUE_,storeidx);
       }
     }
     class_store_double(dataptr,pvecback[pba->index_bg_rho_lambda],pba->has_lambda,storeidx);

@@ -56,6 +56,17 @@ int get_qsampling_manual(double *x,
       w[i] = y*h/t/t;
     }
     return _SUCCESS_;
+		case (qm_trapz_majoron) :
+	    for (i=0; i<N; i++){
+	      /** Note that we count q=0 as an extra point with weight 0 */
+	      h = 1./N;
+	      x[i] = h + i*h;
+	      w[i] = h;
+	      if (i==N-1)
+		w[i] *=0.5;
+		// printf("h %e N %d w[i] %e x[i] %e\n",h,N,w[i],x[i] );
+	    }
+	    return _SUCCESS_;
   }
   return _SUCCESS_;
 }

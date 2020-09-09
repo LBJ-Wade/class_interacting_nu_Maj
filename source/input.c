@@ -1163,6 +1163,24 @@ int input_read_parameters(
     //   class_read_double("M_phi_in_keV",pba->M_phi);
     //   pba->M_phi *=1e3; //convert to eV
     // }
+    class_call(parser_read_string(pfc,
+                                  "use_majoron_security",
+                                  &string1,
+                                  &flag1,
+                                  errmsg),
+               errmsg,
+               errmsg);
+
+    if (flag1 == _TRUE_){
+      if((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL)){
+        ppt->use_majoron_security = _TRUE_;
+      }
+      else {
+        ppt->use_majoron_security = _FALSE_;
+      }
+    }else {
+      ppt->use_majoron_security = _FALSE_;
+    }
 
 
 

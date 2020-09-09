@@ -215,7 +215,11 @@ struct background
   int index_bg_p_ncdm1;       /**< pressure of first ncdm species (others contiguous) */
   int index_bg_pseudo_p_ncdm1;/**< another statistical momentum useful in ncdma approximation */
   int index_bg_T_ncdm1;     /**< density of first ncdm species (others contiguous) */
+  int index_bg_dT_ncdm1;     /**< density of first ncdm species (others contiguous) */
+  int index_bg_ddT_ncdm1;     /**< density of first ncdm species (others contiguous) */
   int index_bg_Mu_ncdm1;     /**< density of first ncdm species (others contiguous) */
+  int index_bg_dMu_ncdm1;     /**< density of first ncdm species (others contiguous) */
+  int index_bg_ddMu_ncdm1;     /**< density of first ncdm species (others contiguous) */
 
   int index_bg_rho_tot;       /**< Total density */
   int index_bg_p_tot;         /**< Total pressure */

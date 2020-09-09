@@ -434,6 +434,8 @@ struct perturbs
 
   ErrorMsg error_message; /**< zone for writing error messages */
 
+  short use_majoron_security;/**< VP:If set to yes, the majoron is ignored when z drops below the last z value in the majoron table.*/
+
   //@}
 
 };
@@ -507,6 +509,7 @@ struct perturb_vector
   double * y;             /**< vector of perturbations to be integrated */
   double * dy;            /**< time-derivative of the same vector */
 
+  double **Collision_l;  /**< VP:table of collision term in the interacting majoron/neutrino scenario*/
   int * used_in_sources; /**< boolean array specifying which
                             perturbations enter in the calculation of
                             source functions */
@@ -936,9 +939,20 @@ int evaluate_collision_terms_nuphi( struct background * pba,
 
 
 int compute_dfdlnq_ncdm(  struct precision *ppr,
-                           struct background *pba,
+                         struct background *pba,
+                         int n_ncdm,
+                         double z,
+                         double q,
+                         double * dlnf0_dlnq_ncdm);
+ int compute_dlnfdz_ncdm(  struct background *pba,
                            int n_ncdm,
-                         double z);
+                           double z,
+                           double q,
+                           double dTdz,
+                           double dmudz,
+                           double * dlnfdz_ncdm);
+int get_q_max_perts(struct background *pba, int n_ncdm, double a, double M,double * qmax);
+
 #ifdef __cplusplus
 }
 #endif

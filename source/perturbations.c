@@ -889,6 +889,7 @@ int perturb_free(
 
   int index_md,index_ic,index_tp;
   int filenum;
+  int n_ncdm;
 
   if (ppt->has_perturbations == _TRUE_) {
 
@@ -953,6 +954,9 @@ int perturb_free(
       if (ppt->tensor_perturbations_data[filenum] != NULL)
         free(ppt->tensor_perturbations_data[filenum]);
     }
+
+
+
 
   }
 
@@ -3023,7 +3027,6 @@ int perturb_solve(
     else{
       generic_evolver = evolver_ndf15;
     }
-
     class_call(generic_evolver(perturb_derivs,
                                interval_limit[index_interval],
                                interval_limit[index_interval+1],
@@ -3067,6 +3070,12 @@ int perturb_solve(
              ppt->error_message,
              ppt->error_message);
 
+  if(pba->has_ncdm == _TRUE_){
+    for(n_ncdm = 0;n_ncdm<pba->N_ncdm;n_ncdm++){
+      free(ppw->pv->Collision_l[n_ncdm]);
+    }
+    free(ppw->pv->Collision_l);
+  }
   for (index_interval=0; index_interval<interval_number; index_interval++)
     free(interval_approx[index_interval]);
 
@@ -3793,6 +3802,7 @@ int perturb_vector_init(
       ppv->N_ncdm = pba->N_ncdm;
       class_alloc(ppv->l_max_ncdm,ppv->N_ncdm*sizeof(double),ppt->error_message);
       class_alloc(ppv->q_size_ncdm,ppv->N_ncdm*sizeof(double),ppt->error_message);
+      class_alloc(ppv->Collision_l,ppv->N_ncdm*sizeof(double),ppt->error_message);
 
       for(n_ncdm = 0; n_ncdm < pba->N_ncdm; n_ncdm++){
         // Set value of ppv->l_max_ncdm:
@@ -3811,7 +3821,9 @@ int perturb_vector_init(
           ppv->q_size_ncdm[n_ncdm] = 1;
         }
         index_pt += (ppv->l_max_ncdm[n_ncdm]+1)*ppv->q_size_ncdm[n_ncdm];
+        class_alloc(ppv->Collision_l[n_ncdm],ppv->l_max_ncdm[n_ncdm]*sizeof(double),ppt->error_message);
       }
+
     }
 
     /* metric (only quantities to be integrated, not those obeying constraint equations) */
@@ -4840,6 +4852,8 @@ int perturb_vector_init(
               class_call(get_q_max(pba,n_ncdm,a,M,&qmax),
               pba->error_message,
               pba->error_message);
+              // qmax = pba->ncdm_qmax[n_ncdm];
+              // printf("1: a %e qmax %e \n", a,pba->ncdm_qmax[n_ncdm]);
             }else{
               for(index_q = 0; index_q < pba->q_size_ncdm[n_ncdm]; index_q++){
               pba->f_ncdm[n_ncdm][index_q] = 1;//f_ncdm is already included in w_ncdm in the case of standard neutrinos.
@@ -4857,15 +4871,15 @@ int perturb_vector_init(
               q2 = q*q;
               epsilon = sqrt(q2+a*a*M*M);
               ppv->y[ppv->index_pt_psi0_ncdm1+ncdm_l_size*n_ncdm] +=
-                pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*q2*epsilon*
+                pba->w_ncdm[n_ncdm][index_q]*qmax*pba->f_ncdm[n_ncdm][index_q]*q2*epsilon*
                 ppw->pv->y[index_pt];
 
               ppv->y[ppv->index_pt_psi0_ncdm1+ncdm_l_size*n_ncdm+1] +=
-                pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*q2*q*
+                pba->w_ncdm[n_ncdm][index_q]*qmax*pba->f_ncdm[n_ncdm][index_q]*q2*q*
                 ppw->pv->y[index_pt+1];
 
               ppv->y[ppv->index_pt_psi0_ncdm1+ncdm_l_size*n_ncdm+2] +=
-                pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*q2*q2/epsilon*
+                pba->w_ncdm[n_ncdm][index_q]*qmax*pba->f_ncdm[n_ncdm][index_q]*q2*q2/epsilon*
                 ppw->pv->y[index_pt+2];
 
               //Jump to next momentum bin in ppw->pv->y:
@@ -5103,7 +5117,7 @@ int perturb_initial_conditions(struct precision * ppr,
   double w_fld,dw_over_da_fld,integral_fld;
   double delta_ur=0.,theta_ur=0.,shear_ur=0.,l3_ur=0.,eta=0.,delta_cdm=0.,alpha, alpha_prime;
   double delta_dr=0;
-  double q,epsilon,k2,qmax,M;
+  double q,epsilon,k2,qmax,M,dlnf0_dlnq;
   int index_q,n_ncdm,idx;
   double rho_r,rho_m,rho_nu,rho_m_over_rho_r;
   double fracnu,fracg,fracb,fraccdm,om;
@@ -5605,9 +5619,8 @@ int perturb_initial_conditions(struct precision * ppr,
           class_call(get_q_max(pba,n_ncdm,a,M,&qmax),
           pba->error_message,
           pba->error_message);
-          class_call(compute_dfdlnq_ncdm(ppr,pba,n_ncdm,1./a-1.),
-          pba->error_message,
-          pba->error_message);
+          // printf("n_ncdm %d a %e qmax %e \n", n_ncdm,a,pba->ncdm_qmax[n_ncdm]);
+
         }else{
           qmax = 1;
           M = pba->M_ncdm[n_ncdm];
@@ -5619,15 +5632,31 @@ int perturb_initial_conditions(struct precision * ppr,
 
           q = pba->q_ncdm[n_ncdm][index_q]*qmax;
           epsilon = sqrt(q*q+a*a*M*M);
+          dlnf0_dlnq = 0;
+          // dlnf0_dz = 0;
+          if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
+            // if(n_ncdm == pba->entry_is_M_phi)
+            class_call(compute_dfdlnq_ncdm(ppr,pba,n_ncdm,1./a-1.,q,&pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]),
+            pba->error_message,
+            pba->error_message);
 
+            // //TBD: new ICs?
+            // dTdz = -pvecback[pba->index_bg_dT_ncdm1+n_ncdm]/pvecback[pba->index_bg_H];//conversion from dT/dtau to dT/dz
+            // dmudz = -pvecback[pba->index_bg_dMu_ncdm1+n_ncdm]/pvecback[pba->index_bg_H];
+            // class_call(compute_dlnfdz_ncdm(pba,n_ncdm,1./a-1.,q,dTdz,dmudz,&dlnf0_dz),
+            // pba->error_message,
+            // pba->error_message);
 
-          ppw->pv->y[idx] = -0.25 * delta_ur * pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
+          }
+          dlnf0_dlnq =  pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
 
-          ppw->pv->y[idx+1] =  -epsilon/3./q/k*theta_ur* pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
+          ppw->pv->y[idx] = -0.25 * delta_ur * dlnf0_dlnq;
 
-          ppw->pv->y[idx+2] = -0.5 * shear_ur * pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
+          ppw->pv->y[idx+1] =  -epsilon/3./q/k*theta_ur* dlnf0_dlnq;
 
-          ppw->pv->y[idx+3] = -0.25 * l3_ur * pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
+          ppw->pv->y[idx+2] = -0.5 * shear_ur * dlnf0_dlnq;
+
+          ppw->pv->y[idx+3] = -0.25 * l3_ur * dlnf0_dlnq;
 
           //Jump to next momentum bin:
           idx += (ppw->pv->l_max_ncdm[n_ncdm]+1);
@@ -6763,15 +6792,27 @@ int perturb_total_stress_energy(
           w_ncdm = p_ncdm_bg/rho_ncdm_bg;
           cg2_ncdm = w_ncdm*(1.0-1.0/(3.0+3.0*w_ncdm)*(3.0*w_ncdm-2.0+pseudo_p_ncdm/p_ncdm_bg));
           if ((ppt->has_source_delta_ncdm == _TRUE_) || (ppt->has_source_theta_ncdm == _TRUE_) || (ppt->has_source_delta_m == _TRUE_)) {
-            ppw->delta_ncdm[n_ncdm] = y[idx];
-            ppw->theta_ncdm[n_ncdm] = y[idx+1];
-            ppw->shear_ncdm[n_ncdm] = y[idx+2];
+            if(pba->ncdm_background_distribution[n_ncdm] == _majoron_){
+              if(1./a-1. <= pba->z_maj[pba->len_maj]  && ppt->use_majoron_security == _TRUE_ ){
+                ppw->delta_ncdm[n_ncdm] =0;
+                ppw->theta_ncdm[n_ncdm] =0;
+                ppw->shear_ncdm[n_ncdm] = 0;
+              }else{
+                ppw->delta_ncdm[n_ncdm] = y[idx];
+                ppw->theta_ncdm[n_ncdm] = y[idx+1];
+                ppw->shear_ncdm[n_ncdm] = y[idx+2];
+              }
+            }else{
+              ppw->delta_ncdm[n_ncdm] = y[idx];
+              ppw->theta_ncdm[n_ncdm] = y[idx+1];
+              ppw->shear_ncdm[n_ncdm] = y[idx+2];
+            }
           }
 
-          ppw->delta_rho += rho_ncdm_bg*y[idx];
-          ppw->rho_plus_p_theta += rho_plus_p_ncdm*y[idx+1];
-          ppw->rho_plus_p_shear += rho_plus_p_ncdm*y[idx+2];
-          ppw->delta_p += cg2_ncdm*rho_ncdm_bg*y[idx];
+          ppw->delta_rho += rho_ncdm_bg*ppw->delta_ncdm[n_ncdm];
+          ppw->rho_plus_p_theta += rho_plus_p_ncdm*ppw->theta_ncdm[n_ncdm];
+          ppw->rho_plus_p_shear += rho_plus_p_ncdm*ppw->shear_ncdm[n_ncdm];
+          ppw->delta_p += cg2_ncdm*rho_ncdm_bg*ppw->delta_ncdm[n_ncdm];
 
           ppw->rho_plus_p_tot += rho_plus_p_ncdm;
 
@@ -6795,6 +6836,7 @@ int perturb_total_stress_energy(
             class_call(get_q_max(pba,n_ncdm,a,M,&qmax),
             pba->error_message,
             pba->error_message);
+            // qmax = pba->ncdm_qmax[n_ncdm];
           }else{
             for(index_q = 0; index_q < pba->q_size_ncdm[n_ncdm]; index_q++){
             pba->f_ncdm[n_ncdm][index_q] = 1;//f_ncdm is already included in w_ncdm in the case of standard neutrinos.
@@ -6811,10 +6853,10 @@ int perturb_total_stress_energy(
             q2 = q*q;
             epsilon = sqrt(q2+M*M*a2);
 
-            rho_delta_ncdm += q2*epsilon*pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*y[idx];
-            rho_plus_p_theta_ncdm += q2*q*pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*y[idx+1];
-            rho_plus_p_shear_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*y[idx+2];
-            delta_p_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*y[idx];
+            rho_delta_ncdm += q2*epsilon*pba->w_ncdm[n_ncdm][index_q]*qmax*pba->f_ncdm[n_ncdm][index_q]*y[idx];
+            rho_plus_p_theta_ncdm += q2*q*pba->w_ncdm[n_ncdm][index_q]*qmax*pba->f_ncdm[n_ncdm][index_q]*y[idx+1];
+            rho_plus_p_shear_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*qmax*pba->f_ncdm[n_ncdm][index_q]*y[idx+2];
+            delta_p_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*qmax*pba->f_ncdm[n_ncdm][index_q]*y[idx];
 
             //Jump to next momentum bin:
             idx+=(ppw->pv->l_max_ncdm[n_ncdm]+1);
@@ -6826,18 +6868,43 @@ int perturb_total_stress_energy(
           delta_p_ncdm *= factor/3.;
 
           if ((ppt->has_source_delta_ncdm == _TRUE_) || (ppt->has_source_theta_ncdm == _TRUE_) || (ppt->has_source_delta_m == _TRUE_)) {
-            ppw->delta_ncdm[n_ncdm] = rho_delta_ncdm/ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm];
-            ppw->theta_ncdm[n_ncdm] = rho_plus_p_theta_ncdm/
-              (ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm]);
-            ppw->shear_ncdm[n_ncdm] = rho_plus_p_shear_ncdm/
-              (ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm]);
-          }
-          ppw->delta_rho += rho_delta_ncdm;
-          ppw->rho_plus_p_theta += rho_plus_p_theta_ncdm;
-          ppw->rho_plus_p_shear += rho_plus_p_shear_ncdm;
-          ppw->delta_p += delta_p_ncdm;
+            if(pba->ncdm_background_distribution[n_ncdm] == _majoron_){
+              if(1./a-1. <= pba->z_maj[pba->len_maj]  && ppt->use_majoron_security == _TRUE_){
+                ppw->delta_ncdm[n_ncdm] =0;
+                ppw->theta_ncdm[n_ncdm] =0;
+                ppw->shear_ncdm[n_ncdm] = 0;
+              }else{
+                ppw->delta_ncdm[n_ncdm] = rho_delta_ncdm/ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm];
+                ppw->theta_ncdm[n_ncdm] = rho_plus_p_theta_ncdm/
+                  (ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm]);
+                ppw->shear_ncdm[n_ncdm] = rho_plus_p_shear_ncdm/
+                  (ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm]);
 
-          ppw->rho_plus_p_tot += ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm];
+                  ppw->delta_rho += rho_delta_ncdm;
+                  ppw->rho_plus_p_theta += rho_plus_p_theta_ncdm;
+                  ppw->rho_plus_p_shear += rho_plus_p_shear_ncdm;
+                  ppw->delta_p += delta_p_ncdm;
+
+                  ppw->rho_plus_p_tot += ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm];
+              }
+            }else{
+              ppw->delta_ncdm[n_ncdm] = rho_delta_ncdm/ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm];
+              ppw->theta_ncdm[n_ncdm] = rho_plus_p_theta_ncdm/
+                (ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm]);
+              ppw->shear_ncdm[n_ncdm] = rho_plus_p_shear_ncdm/
+                (ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm]);
+
+              ppw->delta_rho += rho_delta_ncdm;
+              ppw->rho_plus_p_theta += rho_plus_p_theta_ncdm;
+              ppw->rho_plus_p_shear += rho_plus_p_shear_ncdm;
+              ppw->delta_p += delta_p_ncdm;
+
+              ppw->rho_plus_p_tot += ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm];
+
+            }
+
+          }
+
         }
       }
       if (ppt->has_source_delta_m == _TRUE_) {
@@ -7101,6 +7168,7 @@ int perturb_total_stress_energy(
             class_call(get_q_max(pba,n_ncdm,a,M,&qmax),
             pba->error_message,
             pba->error_message);
+            // qmax = pba->ncdm_qmax[n_ncdm];
           }else{
             qmax = 1;
             M = pba->M_ncdm[n_ncdm];
@@ -7110,7 +7178,7 @@ int perturb_total_stress_energy(
           q2 = q*q;
           epsilon = sqrt(q2+M*M*a2);
 
-          gwncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*(1./15.*y[idx]+2./21.*y[idx+2]+1./35.*y[idx+4]);
+          gwncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*qmax*(1./15.*y[idx]+2./21.*y[idx+2]+1./35.*y[idx+4]);
 
           //Jump to next momentum bin:
           idx+=(ppw->pv->l_max_ncdm[n_ncdm]+1);
@@ -7999,11 +8067,28 @@ int perturb_print_variables(double tau,
           pseudo_p_ncdm = pvecback[pba->index_bg_pseudo_p_ncdm1+n_ncdm];
           w_ncdm = p_ncdm_bg/rho_ncdm_bg;
 
-          delta_ncdm[n_ncdm] = y[idx];
-          theta_ncdm[n_ncdm] = y[idx+1];
-          shear_ncdm[n_ncdm] = y[idx+2];
-          //This is the adiabatic sound speed:
-          delta_p_over_delta_rho_ncdm[n_ncdm] = w_ncdm*(1.0-1.0/(3.0+3.0*w_ncdm)*(3.0*w_ncdm-2.0+pseudo_p_ncdm/p_ncdm_bg));
+          if(pba->ncdm_background_distribution[n_ncdm] == _majoron_){
+            if(1./a-1. <= pba->z_maj[pba->len_maj] && ppt->use_majoron_security == _TRUE_){
+              delta_ncdm[n_ncdm] = 0;
+              theta_ncdm[n_ncdm] = 0;
+              shear_ncdm[n_ncdm] = 0;
+              delta_p_over_delta_rho_ncdm[n_ncdm] = 0;
+            }else{
+              delta_ncdm[n_ncdm] = y[idx];
+              theta_ncdm[n_ncdm] = y[idx+1];
+              shear_ncdm[n_ncdm] = y[idx+2];
+              //This is the adiabatic sound speed:
+              delta_p_over_delta_rho_ncdm[n_ncdm] = w_ncdm*(1.0-1.0/(3.0+3.0*w_ncdm)*(3.0*w_ncdm-2.0+pseudo_p_ncdm/p_ncdm_bg));
+            }
+          }else{
+            delta_ncdm[n_ncdm] = y[idx];
+            theta_ncdm[n_ncdm] = y[idx+1];
+            shear_ncdm[n_ncdm] = y[idx+2];
+            //This is the adiabatic sound speed:
+            delta_p_over_delta_rho_ncdm[n_ncdm] = w_ncdm*(1.0-1.0/(3.0+3.0*w_ncdm)*(3.0*w_ncdm-2.0+pseudo_p_ncdm/p_ncdm_bg));
+          }
+
+
           idx += ppw->pv->l_max_ncdm[n_ncdm]+1;
         }
       }
@@ -8024,6 +8109,7 @@ int perturb_print_variables(double tau,
             class_call(get_q_max(pba,n_ncdm,a/pba->a_today,M,&qmax),
             pba->error_message,
             pba->error_message);
+            // qmax = pba->ncdm_qmax[n_ncdm];
           }else{
             for(index_q = 0; index_q < pba->q_size_ncdm[n_ncdm]; index_q++){
             pba->f_ncdm[n_ncdm][index_q] = 1;//f_ncdm is already included in w_ncdm in the case of standard neutrinos.
@@ -8040,10 +8126,10 @@ int perturb_print_variables(double tau,
             q2 = q*q;
             epsilon = sqrt(q2+M*M*a2);
 
-            rho_delta_ncdm += q2*epsilon*pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*y[idx];
-            rho_plus_p_theta_ncdm += q2*q*pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*y[idx+1];
-            rho_plus_p_shear_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*y[idx+2];
-            delta_p_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*y[idx];
+            rho_delta_ncdm += q2*epsilon*pba->w_ncdm[n_ncdm][index_q]*qmax*pba->f_ncdm[n_ncdm][index_q]*y[idx];
+            rho_plus_p_theta_ncdm += q2*q*pba->w_ncdm[n_ncdm][index_q]*qmax*pba->f_ncdm[n_ncdm][index_q]*y[idx+1];
+            rho_plus_p_shear_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*qmax*pba->f_ncdm[n_ncdm][index_q]*y[idx+2];
+            delta_p_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*qmax*pba->f_ncdm[n_ncdm][index_q]*y[idx];
 
             //Jump to next momentum bin:
             idx+=(ppw->pv->l_max_ncdm[n_ncdm]+1);
@@ -8054,12 +8140,30 @@ int perturb_print_variables(double tau,
           rho_plus_p_shear_ncdm *= 2.0/3.0*factor;
           delta_p_ncdm *= factor/3.;
 
-          delta_ncdm[n_ncdm] = rho_delta_ncdm/ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm];
-          theta_ncdm[n_ncdm] = rho_plus_p_theta_ncdm/
-            (ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm]);
-          shear_ncdm[n_ncdm] = rho_plus_p_shear_ncdm/
-            (ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm]);
-          delta_p_over_delta_rho_ncdm[n_ncdm] = delta_p_ncdm/rho_delta_ncdm;
+          if(pba->ncdm_background_distribution[n_ncdm] == _majoron_){
+            if(1./a-1. <= pba->z_maj[pba->len_maj] && ppt->use_majoron_security == _TRUE_){
+              delta_ncdm[n_ncdm] = 0;
+              theta_ncdm[n_ncdm] = 0;
+              shear_ncdm[n_ncdm] = 0;
+              delta_p_over_delta_rho_ncdm[n_ncdm] = 0;
+            }else{
+              delta_ncdm[n_ncdm] = rho_delta_ncdm/ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm];
+              theta_ncdm[n_ncdm] = rho_plus_p_theta_ncdm/
+                (ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm]);
+              shear_ncdm[n_ncdm] = rho_plus_p_shear_ncdm/
+                (ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm]);
+              delta_p_over_delta_rho_ncdm[n_ncdm] = delta_p_ncdm/rho_delta_ncdm;
+            }
+          }else{
+            delta_ncdm[n_ncdm] = rho_delta_ncdm/ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm];
+            theta_ncdm[n_ncdm] = rho_plus_p_theta_ncdm/
+              (ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm]);
+            shear_ncdm[n_ncdm] = rho_plus_p_shear_ncdm/
+              (ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm]);
+            delta_p_over_delta_rho_ncdm[n_ncdm] = delta_p_ncdm/rho_delta_ncdm;
+          }
+
+
 
         }
       }
@@ -8101,60 +8205,60 @@ int perturb_print_variables(double tau,
 
     }
 
-    /* converting synchronous variables to newtonian ones */
-    if (ppt->gauge == synchronous) {
-
-      /* density and velocity perturbations (comment out if you wish to keep synchronous variables) */
-
-      delta_g -= 4. * pvecback[pba->index_bg_H]*pvecback[pba->index_bg_a]*alpha;
-      theta_g += k*k*alpha;
-
-      delta_b -= 3. * pvecback[pba->index_bg_H]*pvecback[pba->index_bg_a]*alpha;
-      theta_b += k*k*alpha;
-
-      if (pba->has_ur == _TRUE_) {
-        delta_ur -= 4. * pvecback[pba->index_bg_H]*pvecback[pba->index_bg_a]*alpha;
-        theta_ur += k*k*alpha;
-      }
-
-      if (pba->has_idr == _TRUE_) {
-        delta_idr -= 4. * pvecback[pba->index_bg_H]*pvecback[pba->index_bg_a]*alpha;
-        theta_idr += k*k*alpha;
-      }
-
-      if (pba->has_dr == _TRUE_) {
-        delta_dr += (-4.*a*H+a*pba->Gamma_dcdm*pvecback[pba->index_bg_rho_dcdm]/pvecback[pba->index_bg_rho_dr])*alpha;
-
-        theta_dr += k*k*alpha;
-      }
-
-      if (pba->has_cdm == _TRUE_) {
-        delta_cdm -= 3. * pvecback[pba->index_bg_H]*pvecback[pba->index_bg_a]*alpha;
-        theta_cdm += k*k*alpha;
-      }
-
-      if (pba->has_idm_dr == _TRUE_) {
-        delta_idm_dr -= 3. * pvecback[pba->index_bg_H]*pvecback[pba->index_bg_a]*alpha;
-        theta_idm_dr += k*k*alpha;
-      }
-
-      if (pba->has_ncdm == _TRUE_) {
-        for(n_ncdm=0; n_ncdm < pba->N_ncdm; n_ncdm++){
-          /** - --> TODO: gauge transformation of delta, deltaP/rho (?) and theta using -= 3aH(1+w_ncdm) alpha for delta. */
-        }
-      }
-
-      if (pba->has_dcdm == _TRUE_) {
-        delta_dcdm += alpha*(-a*pba->Gamma_dcdm-3.*a*H);
-        theta_dcdm += k*k*alpha;
-      }
-
-      if (pba->has_scf == _TRUE_) {
-        delta_scf += alpha*(-3.0*H*(1.0+pvecback[pba->index_bg_p_scf]/pvecback[pba->index_bg_rho_scf]));
-        theta_scf += k*k*alpha;
-      }
-
-    }
+    /* converting synchronous variables to newtonian ones */ //VP: commented out
+    // if (ppt->gauge == synchronous) {
+    //
+    //   /* density and velocity perturbations (comment out if you wish to keep synchronous variables) */
+    //
+    //   delta_g -= 4. * pvecback[pba->index_bg_H]*pvecback[pba->index_bg_a]*alpha;
+    //   theta_g += k*k*alpha;
+    //
+    //   delta_b -= 3. * pvecback[pba->index_bg_H]*pvecback[pba->index_bg_a]*alpha;
+    //   theta_b += k*k*alpha;
+    //
+    //   if (pba->has_ur == _TRUE_) {
+    //     delta_ur -= 4. * pvecback[pba->index_bg_H]*pvecback[pba->index_bg_a]*alpha;
+    //     theta_ur += k*k*alpha;
+    //   }
+    //
+    //   if (pba->has_idr == _TRUE_) {
+    //     delta_idr -= 4. * pvecback[pba->index_bg_H]*pvecback[pba->index_bg_a]*alpha;
+    //     theta_idr += k*k*alpha;
+    //   }
+    //
+    //   if (pba->has_dr == _TRUE_) {
+    //     delta_dr += (-4.*a*H+a*pba->Gamma_dcdm*pvecback[pba->index_bg_rho_dcdm]/pvecback[pba->index_bg_rho_dr])*alpha;
+    //
+    //     theta_dr += k*k*alpha;
+    //   }
+    //
+    //   if (pba->has_cdm == _TRUE_) {
+    //     delta_cdm -= 3. * pvecback[pba->index_bg_H]*pvecback[pba->index_bg_a]*alpha;
+    //     theta_cdm += k*k*alpha;
+    //   }
+    //
+    //   if (pba->has_idm_dr == _TRUE_) {
+    //     delta_idm_dr -= 3. * pvecback[pba->index_bg_H]*pvecback[pba->index_bg_a]*alpha;
+    //     theta_idm_dr += k*k*alpha;
+    //   }
+    //
+    //   if (pba->has_ncdm == _TRUE_) {
+    //     for(n_ncdm=0; n_ncdm < pba->N_ncdm; n_ncdm++){
+    //       /** - --> TODO: gauge transformation of delta, deltaP/rho (?) and theta using -= 3aH(1+w_ncdm) alpha for delta. */
+    //     }
+    //   }
+    //
+    //   if (pba->has_dcdm == _TRUE_) {
+    //     delta_dcdm += alpha*(-a*pba->Gamma_dcdm-3.*a*H);
+    //     theta_dcdm += k*k*alpha;
+    //   }
+    //
+    //   if (pba->has_scf == _TRUE_) {
+    //     delta_scf += alpha*(-3.0*H*(1.0+pvecback[pba->index_bg_p_scf]/pvecback[pba->index_bg_rho_scf]));
+    //     theta_scf += k*k*alpha;
+    //   }
+    //
+    // }
 
     //    fprintf(ppw->perturb_output_file," ");
     /** - --> Handle (re-)allocation */
@@ -8321,6 +8425,7 @@ int perturb_print_variables(double tau,
           class_call(get_q_max(pba,n_ncdm,a,M,&qmax),
           pba->error_message,
           pba->error_message);
+          // qmax = pba->ncdm_qmax[n_ncdm];
         }else{
           for(index_q = 0; index_q < pba->q_size_ncdm[n_ncdm]; index_q++){
           pba->f_ncdm[n_ncdm][index_q] = 1;//f_ncdm is already included in w_ncdm in the case of standard neutrinos.
@@ -8339,10 +8444,10 @@ int perturb_print_variables(double tau,
           q2 = q*q;
           epsilon = sqrt(q2+M*M*a2);
 
-          rho_delta_ncdm += q2*epsilon*pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*y[idx];
-          rho_plus_p_theta_ncdm += q2*q*pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*y[idx+1];
-          rho_plus_p_shear_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*y[idx+2];
-          delta_p_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*pba->f_ncdm[n_ncdm][index_q]*y[idx];
+          rho_delta_ncdm += q2*epsilon*pba->w_ncdm[n_ncdm][index_q]*qmax*pba->f_ncdm[n_ncdm][index_q]*y[idx];
+          rho_plus_p_theta_ncdm += q2*q*pba->w_ncdm[n_ncdm][index_q]*qmax*pba->f_ncdm[n_ncdm][index_q]*y[idx+1];
+          rho_plus_p_shear_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*qmax*pba->f_ncdm[n_ncdm][index_q]*y[idx+2];
+          delta_p_ncdm += q2*q2/epsilon*pba->w_ncdm[n_ncdm][index_q]*qmax*pba->f_ncdm[n_ncdm][index_q]*y[idx];
 
           //Jump to next momentum bin:
           idx+=(ppw->pv->l_max_ncdm[n_ncdm]+1);
@@ -8457,7 +8562,7 @@ int perturb_derivs(double tau,
 
   /* for use with non-cold dark matter (ncdm): */
   int index_q,n_ncdm,idx;
-  double q,epsilon,dlnf0_dlnq,qk_div_epsilon,M,qmax;
+  double q,epsilon,dlnf0_dlnq,dlnf0_dz,dTdz,dmudz,qk_div_epsilon,M,qmax;
   double rho_ncdm_bg,p_ncdm_bg,pseudo_p_ncdm,w_ncdm,ca2_ncdm,ceff2_ncdm=0.,cvis2_ncdm=0.;
 
   /* for use with curvature */
@@ -9192,15 +9297,14 @@ int perturb_derivs(double tau,
 
         for (n_ncdm=0; n_ncdm<pv->N_ncdm; n_ncdm++) {
           // printf("n_ncdm %d\n", n_ncdm);
-          class_alloc(Collision, sizeof(double)*pv->l_max_ncdm[n_ncdm],error_message);
+          // class_alloc(Collision, sizeof(double)*pv->l_max_ncdm[n_ncdm],error_message);
           if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
             M = pba->m_ncdm_in_eV[n_ncdm];
             class_call(get_q_max(pba,n_ncdm,a,M,&qmax),
             pba->error_message,
             pba->error_message);
-            class_call(compute_dfdlnq_ncdm(ppr,pba,n_ncdm,1./a-1.),
-            pba->error_message,
-            pba->error_message);
+            // qmax=pba->ncdm_qmax[n_ncdm];
+
           }else{
             // printf("here!\n");
             qmax = 1;
@@ -9216,10 +9320,29 @@ int perturb_derivs(double tau,
             /** - -----> define intermediate quantities */
             //
             // if(n_ncdm ==2){
-            //   dlnf0_dlnq=0;
-            // }else
-            dlnf0_dlnq = pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
+
             q = pba->q_ncdm[n_ncdm][index_q]*qmax;
+            dlnf0_dlnq=0;
+            dlnf0_dz=0;
+            if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
+              // if (1./a-1. >= 1.05*pba->z_maj[pba->len_maj] && 1./a-1. <= 1.95*pba->z_maj[0]){
+                class_call(compute_dfdlnq_ncdm(ppr,pba,n_ncdm,1./a-1.,q,&dlnf0_dlnq),
+                pba->error_message,
+                pba->error_message);
+                // if(n_ncdm == 1 &&  1./a-1. < pba->z_maj[pba->len_maj] )dlnf0_dlnq = 0;
+                dTdz = -pvecback[pba->index_bg_dT_ncdm1+n_ncdm]/pvecback[pba->index_bg_H];//conversion from dT/dtau to dT/dz
+                dmudz = -pvecback[pba->index_bg_dMu_ncdm1+n_ncdm]/pvecback[pba->index_bg_H];
+                class_call(compute_dlnfdz_ncdm(pba,n_ncdm,1./a-1.,q,dTdz,dmudz,&dlnf0_dz),
+                pba->error_message,
+                pba->error_message);
+                // if(n_ncdm == 1)dlnf0_dz=0;
+
+              // }
+            }else{
+              dlnf0_dlnq =  pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
+            }
+            // printf("n_ncdm %d a % e dlnf0_dlnq %e dlnf0_dz %e\n",n_ncdm,a,dlnf0_dlnq,dlnf0_dz);
+
             epsilon = sqrt(q*q+a2*M*M);
             qk_div_epsilon = k*q/epsilon;
 
@@ -9230,22 +9353,25 @@ int perturb_derivs(double tau,
 
               for(l=0; l<pv->l_max_ncdm[n_ncdm]; l++){
 
-                  evaluate_collision_terms_nuphi(pba,
-                                                pv,
-                                                a,
-                                                y,
-                                                n_ncdm,
-                                                index_q,
-                                                l,
-                                                idx+l,
-                                                &Collision[l]);
-                // printf("l %d collision %e !!\n",l,Collision[l]);
-                Collision[l] = 0;
+                  // evaluate_collision_terms_nuphi(pba,
+                  //                               pv,
+                  //                               a,
+                  //                               y,
+                  //                               n_ncdm,
+                  //                               index_q,
+                  //                               l,
+                  //                               idx+l,
+                  //                               &pv->Collision_l[n_ncdm][l]);
+                                                // &Collision[l]);
+                // printf("l %d collision %e !!\n",l,pv->Collision_l[n_ncdm][l]);
+
+                pv->Collision_l[n_ncdm][l] = 0;
+                // Collision[l] = 0 ;
 
                 }
              }
              else{
-                for(l=0; l<pv->l_max_ncdm[n_ncdm]; l++) Collision[l] = 0.0;
+                for(l=0; l<pv->l_max_ncdm[n_ncdm]; l++)   pv->Collision_l[n_ncdm][l] = 0.0;
             }
 
 
@@ -9254,22 +9380,35 @@ int perturb_derivs(double tau,
 
             /** - -----> ncdm density for given momentum bin */
 
-            dy[idx] = -qk_div_epsilon*y[idx+1]+metric_continuity*dlnf0_dlnq/3.+Collision[0];
-            // printf("n_ncdm %d -qk_div_epsilon*y[idx+1] %e metric_continuity*dlnf0_dlnq/3 %e Collision[0] %e dlnf0_dlnq %e\n",n_ncdm,-qk_div_epsilon*y[idx+1],metric_continuity*dlnf0_dlnq/3,Collision[0],dlnf0_dlnq);
+            dy[idx] = -qk_div_epsilon*y[idx+1]+metric_continuity*dlnf0_dlnq/3.+  pv->Collision_l[n_ncdm][0];
+            // dy[idx] = -qk_div_epsilon*y[idx+1]+metric_continuity*dlnf0_dlnq/3.+  Collision[0];
+            // dy[idx] = -qk_div_epsilon*y[idx+1]+metric_continuity*dlnf0_dlnq/3.;
+            // printf("n_ncdm %d -qk_div_epsilon*y[idx+1] %e metric_continuity*dlnf0_dlnq/3 %e Collision_l[0] %e dlnf0_dlnq %e\n",n_ncdm,-qk_div_epsilon*y[idx+1],metric_continuity*dlnf0_dlnq/3,Collision[0],dlnf0_dlnq);
             /** - -----> ncdm velocity for given momentum bin */
 
             dy[idx+1] = qk_div_epsilon/3.0*(y[idx] - 2*s_l[2]*y[idx+2])
-              -epsilon*metric_euler/(3*q*k)*dlnf0_dlnq+Collision[1];
+              -epsilon*metric_euler/(3*q*k)*dlnf0_dlnq+ pvecback[pba->index_bg_H]*y[idx+1]*dlnf0_dz+ pv->Collision_l[n_ncdm][1];
+
+              if(fabs(-qk_div_epsilon*y[idx+1])>1e10)printf("n_ncdm %d index_q %d a %e 1 %e 2 %e 3 %e dlnf0_dz %e \n", n_ncdm,index_q,a, -qk_div_epsilon*y[idx+1],metric_continuity*dlnf0_dlnq/3.,pv->Collision_l[n_ncdm][0],dlnf0_dz);
+
+              // -epsilon*metric_euler/(3*q*k)*dlnf0_dlnq+  Collision[1];
+              // -epsilon*metric_euler/(3*q*k)*dlnf0_dlnq;
+
+              // printf("n_ncdm %d index_q %d a %e 1 %e 2 %e 3 %e\n",n_ncdm,index_q,a,qk_div_epsilon/3.0*(y[idx] - 2*s_l[2]*y[idx+2]),pvecback[pba->index_bg_H]*y[idx+1]*dlnf0_dz,pv->Collision_l[n_ncdm][1]);
 
             /** - -----> ncdm shear for given momentum bin */
 
             dy[idx+2] = qk_div_epsilon/5.0*(2*s_l[2]*y[idx+1]-3.*s_l[3]*y[idx+3])
-              -s_l[2]*metric_shear*2./15.*dlnf0_dlnq+Collision[2];
+              -s_l[2]*metric_shear*2./15.*dlnf0_dlnq+pvecback[pba->index_bg_H]*y[idx+2]*dlnf0_dz+  pv->Collision_l[n_ncdm][2];
+              // -s_l[2]*metric_shear*2./15.*dlnf0_dlnq+  Collision[2];
+              // -s_l[2]*metric_shear*2./15.*dlnf0_dlnq;
 
             /** - -----> ncdm l>3 for given momentum bin */
 
             for(l=3; l<pv->l_max_ncdm[n_ncdm]; l++){
-              dy[idx+l] = qk_div_epsilon/(2.*l+1.0)*(l*s_l[l]*y[idx+(l-1)]-(l+1.)*s_l[l+1]*y[idx+(l+1)])+Collision[l];
+              dy[idx+l] = qk_div_epsilon/(2.*l+1.0)*(l*s_l[l]*y[idx+(l-1)]-(l+1.)*s_l[l+1]*y[idx+(l+1)])+pvecback[pba->index_bg_H]*y[idx+l]*dlnf0_dz+pv->Collision_l[n_ncdm][l];
+              // dy[idx+l] = qk_div_epsilon/(2.*l+1.0)*(l*s_l[l]*y[idx+(l-1)]-(l+1.)*s_l[l+1]*y[idx+(l+1)])+Collision[l];
+              // dy[idx+l] = qk_div_epsilon/(2.*l+1.0)*(l*s_l[l]*y[idx+(l-1)]-(l+1.)*s_l[l+1]*y[idx+(l+1)]);
             }
 
             /** - -----> ncdm lmax for given momentum bin (truncation as in Ma and Bertschinger)
@@ -9281,7 +9420,7 @@ int perturb_derivs(double tau,
 
             idx += (pv->l_max_ncdm[n_ncdm]+1);
           }
-          free(Collision);
+          // free(Collision);
        }
 
       }
@@ -9573,9 +9712,8 @@ int perturb_derivs(double tau,
           class_call(get_q_max(pba,n_ncdm,a,M,&qmax),
           pba->error_message,
           pba->error_message);
-          class_call(compute_dfdlnq_ncdm(ppr,pba,n_ncdm,1./a-1.),
-          pba->error_message,
-          pba->error_message);
+          // qmax= pba->ncdm_qmax[n_ncdm];
+
         }else{
           qmax = 1;
           M = pba->M_ncdm[n_ncdm];
@@ -9586,10 +9724,29 @@ int perturb_derivs(double tau,
 
           /** - ----> define intermediate quantities */
 
-          dlnf0_dlnq = pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
+          // dlnf0_dlnq = pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
+
 
 
           q = pba->q_ncdm[n_ncdm][index_q]*qmax;
+          dlnf0_dlnq = 0;
+          if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
+            class_call(compute_dfdlnq_ncdm(ppr,pba,n_ncdm,1./a-1.,q,&dlnf0_dlnq),
+            pba->error_message,
+            pba->error_message);
+            if(n_ncdm == 1)dlnf0_dlnq = 0;
+
+            dTdz = -pvecback[pba->index_bg_dT_ncdm1+n_ncdm]/pvecback[pba->index_bg_H];//conversion from dT/dtau to dT/dz
+            dmudz = -pvecback[pba->index_bg_dMu_ncdm1+n_ncdm]/pvecback[pba->index_bg_H];
+            class_call(compute_dlnfdz_ncdm(pba,n_ncdm,1./a-1.,q,dTdz,dmudz,&dlnf0_dz),
+            pba->error_message,
+            pba->error_message);
+            // dlnf0_dz = 0;
+
+          }else{
+            dlnf0_dlnq =  pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
+          }
+
           epsilon = sqrt(q*q+a2*M*M);
           qk_div_epsilon = k*q/epsilon;
 
@@ -10152,6 +10309,7 @@ int interpolate_forpsi_table_at_eps(
   class_call(get_q_max(pba,n_ncdm,a,pba->m_ncdm_in_eV[n_ncdm],&qmax),
   pba->error_message,
   pba->error_message);
+  // qmax=pba->ncdm_qmax[n_ncdm];
   // printf("here!\n");
   epsilon_min =sqrt(pba->q_ncdm[n_ncdm][0]*pba->q_ncdm[n_ncdm][0]*qmax*qmax+a*a*pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]);
   // printf("epsilon_min %e\n", epsilon_min);
@@ -10221,6 +10379,10 @@ int evaluate_collision_terms_nuphi( struct background * pba,
     class_call(get_q_max(pba,n,a,pba->m_ncdm_in_eV[n],&qmax_ncdm[n]),
     pba->error_message,
     pba->error_message);
+  // qmax_ncdm[n]=pba->ncdm_qmax[n_ncdm];
+  class_call(interpolate_background_ncdm_distribution(pba,n_ncdm,pba->q_ncdm[n_ncdm],pba->q_size_ncdm[n_ncdm],1./a-1,pba->f_ncdm[n_ncdm]),
+  pba->error_message,
+  pba->error_message);
   }
 
   if(n_ncdm == pba->entry_is_M_phi){
@@ -10374,6 +10536,7 @@ int evaluate_collision_terms_nuphi( struct background * pba,
   free(dd_psi_table_nu_l);
   free(f_bar_nu);
   free(dd_f_bar_nu);
+  free(qmax_ncdm);
   // printf("*Collision_l %e after _eV_/_h_P_/2./_PI_/_c_*_Mpc_over_m_ %e \n", *Collision_l,_eV_/_h_P_/2./_PI_/_c_*_Mpc_over_m_);
 
   // *Collision_l = 0;
@@ -10383,27 +10546,58 @@ return _SUCCESS_;
 }
 
 
+int compute_dlnfdz_ncdm(  struct background *pba,
+                          int n_ncdm,
+                          double z,
+                          double q,
+                          double dTdz,
+                          double dmudz,
+                          double * dlnfdz_ncdm){
+    double T_ncdm, mu_ncdm, qmax, eps,qz,f0;
 
+    interpolate_T_and_mu_at_z(pba,n_ncdm,z,&T_ncdm,&mu_ncdm);
+    if((dTdz)>0)dTdz=0;
+    if((dmudz)>0)dmudz=0;
+    class_call(get_q_max(pba,n_ncdm,1/(1+z),pba->m_ncdm_in_eV[n_ncdm],&qmax),
+    pba->error_message,
+    pba->error_message);
+    // qmax = pba->ncdm_qmax[n_ncdm];
+    qz = q*(1+z);
+    // eps = sqrt(qz*qz+pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]/(1+z)/(1+z));//we define q in units of qmax.
+    eps = sqrt(qz*qz);//we define q in units of qmax.
+    if(mu_ncdm > eps) eps = sqrt(qz*qz + pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]);
+    if(pba->ncdm_background_distribution[n_ncdm]==_majoron_){
+      f0=1.0/pow(2*_PI_,3)*(1./(exp((eps-mu_ncdm)/T_ncdm)-1));
+      *dlnfdz_ncdm=-exp((eps-mu_ncdm)/T_ncdm)*(dTdz*(mu_ncdm-eps)+T_ncdm*(qz*qz/(1+z)/eps-dmudz))*f0/T_ncdm/T_ncdm;
+    }
+    else{
+      f0=1.0/pow(2*_PI_,3)*(1./(exp((eps-mu_ncdm)/T_ncdm)+1));
+      *dlnfdz_ncdm=-exp((eps-mu_ncdm)/T_ncdm)*(dTdz*(mu_ncdm-eps)+T_ncdm*(qz*qz/(1+z)/eps-dmudz))*f0/T_ncdm/T_ncdm;//identical to SW's formula.
+    }
+    // printf("dlnfdz_ncdm %e dmudz %e dTdz %e\n",dlnfdz_ncdm,dmudz,dTdz);
+    if(isinf(*dlnfdz_ncdm))*dlnfdz_ncdm=0;
+    if(isnan(*dlnfdz_ncdm))*dlnfdz_ncdm=0;
+    // *dlnfdz_ncdm=0;
+  return _SUCCESS_;
+}
 
 //To be adapted.
 int compute_dfdlnq_ncdm(  struct precision *ppr,
                           struct background *pba,
                           int n_ncdm,
-                          double z){
+                          double z,
+                          double q,
+                          double * dlnf0_dlnq_ncdm){
   int index_q,tolexp,row,status,filenum;
-  double f0m2= 0,f0m1= 0,f0= 0,f0p1= 0,f0p2= 0,dq= 0,q= 0,df0dq= 0,tmp1= 0,tmp2= 0,f0back= 0;
+  double f0m2= 0,f0m1= 0,f0= 0,f0p1= 0,f0p2= 0,dq= 0,df0dq= 0,tmp1= 0,tmp2= 0,f0back= 0, q_loop = 0;
   double * pvecback;
-  double T_ncdm, mu_ncdm, dlnf0_dlnq_ncdm, qmax;
+  double T_ncdm, mu_ncdm, qmax, eps;
   struct background_parameters_for_distributions pbadist;
-
+  //
   pbadist.pba = pba;
   pbadist.n_ncdm = n_ncdm;
-
-  for (index_q=0; index_q<pba->q_size_ncdm[n_ncdm]; index_q++) {
-    q = pba->q_ncdm[n_ncdm][index_q];
-    class_call(background_ncdm_distribution(&pbadist,q,&f0,z),
-               pba->error_message,pba->error_message);
-
+  int num = 0;//switch to 1 for numerical calculation
+  int anal = 1;
 
 
 
@@ -10411,58 +10605,130 @@ int compute_dfdlnq_ncdm(  struct precision *ppr,
      class_call(get_q_max(pba,n_ncdm,1/(1+z),pba->m_ncdm_in_eV[n_ncdm],&qmax),
      pba->error_message,
      pba->error_message);
-     pba->dlnf0_dlnq_ncdm[n_ncdm][index_q] = (-q*qmax*(1+z)*(1+z)/(T_ncdm*sqrt(q*qmax*q*qmax*(1+z)*(1+z)-mu_ncdm))*(f0+f0*f0))*(q*qmax)/(f0);
+     // qmax = pba->ncdm_qmax[n_ncdm];
+     // eps = sqrt(q*q+pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]/(1+z)/(1+z));//we define q in units of qmax.
 
-    //OLD NUMERICAL WAY OF EXTRACTING THE DERIVATIVE; kept for comparison.
-    // //Loop to find appropriate dq:
-    // for(tolexp=_PSD_DERIVATIVE_EXP_MIN_; tolexp<_PSD_DERIVATIVE_EXP_MAX_; tolexp++){
-    //
-    //   if (index_q == 0){
-    //     dq = MIN((0.5-ppr->smallest_allowed_variation)*q,2*exp(tolexp)*(pba->q_ncdm[n_ncdm][index_q+1]-q));
-    //   }
-    //   else if (index_q == pba->q_size_ncdm[n_ncdm]-1){
-    //     dq = exp(tolexp)*2.0*(pba->q_ncdm[n_ncdm][index_q]-pba->q_ncdm[n_ncdm][index_q-1]);
-    //   }
-    //   else{
-    //     dq = exp(tolexp)*(pba->q_ncdm[n_ncdm][index_q+1]-pba->q_ncdm[n_ncdm][index_q-1]);
-    //   }
-    //
-    //   class_call(background_ncdm_distribution(&pbadist,q-2*dq,&f0m2,z),
-    //              pba->error_message,pba->error_message);
-    //   class_call(background_ncdm_distribution(&pbadist,q+2*dq,&f0p2,z),
-    //              pba->error_message,pba->error_message);
-    //
-    //   if (fabs((f0p2-f0m2)/f0)>sqrt(ppr->smallest_allowed_variation)) break;
-    // }
-    //
-    // class_call(background_ncdm_distribution(&pbadist,q-dq,&f0m1,z),
-    //            pba->error_message,pba->error_message);
-    // class_call(background_ncdm_distribution(&pbadist,q+dq,&f0p1,z),
-    //            pba->error_message,pba->error_message);
-    // //5 point estimate of the derivative:
-    // df0dq = (+f0m2-8*f0m1+8*f0p1-f0p2)/12.0/dq;
-    // // printf("df0dq[%g] = %g. dlnf0_dlnq_ncdm= %g. f0 =%g.\n",q,df0dq,q/f0*df0dq,f0);
-    // //Avoid underflow in extreme tail:
-    // if (fabs(f0)==0.)
-    //   pba->dlnf0_dlnq_ncdm[n_ncdm][index_q] = -q; /* valid for whatever f0 with exponential tail in exp(-q) */
-    // else if (f0==1e-40 || isinf(fabs(df0dq)))
-    //   pba->dlnf0_dlnq_ncdm[n_ncdm][index_q] = 0; /* to avoid bug */
-    // else
-    //   pba->dlnf0_dlnq_ncdm[n_ncdm][index_q] = q/f0*df0dq;
-    //
-    // if(isinf(fabs(pba->dlnf0_dlnq_ncdm[n_ncdm][index_q])) || isnan(fabs(pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]))){
-    //   printf("n_ncdm %d index_q %d pba->dlnf0_dlnq_ncdm[n_ncdm][index_q] %e\n",n_ncdm,index_q, pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]);
-    //   pba->dlnf0_dlnq_ncdm[n_ncdm][index_q] = 0;
-    // }
+     // if(pba->ncdm_background_distribution[n_ncdm]==_majoron_){
+     //   f0=(1./(exp((eps-mu_ncdm)/T_ncdm)-1));
+     // }
+     // else{
+     //   f0=(1./(exp((eps-mu_ncdm)/T_ncdm)+1));
+     // }
 
-    // printf("dlnf0_dlnq_ncdm anal %e dlnf0_dlnq_ncdm num %e \n",dlnf0_dlnq_ncdm,pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]);
+     // eps = sqrt(q*q*qmax*qmax*(1+z)*(1+z)+pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]/(1+z)/(1+z));//we define q in units of qmax.//not yet fully clear on why m needs to be divided by (1+z) here.
+
+  if(anal == 1){
+     eps = sqrt(q*q*(1+z)*(1+z));//we define q in units of qmax.//not yet fully clear on why m needs to be divided by (1+z) here.
+     //
+     // mu_ncdm = 0;
+     if(mu_ncdm > eps) eps = sqrt(q*q*(1+z)*(1+z) + pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]);
+
+     if(pba->ncdm_background_distribution[n_ncdm]==_majoron_){
+       f0=1.0/pow(2*_PI_,3)*(1./(exp((eps-mu_ncdm)/T_ncdm)-1));
+     }
+     else{
+       f0=1.0/pow(2*_PI_,3)*(1./(exp((eps-mu_ncdm)/T_ncdm)+1));
+     }
 
 
+     if(f0 == 0){
+       f0 = 1e-40; //to avoid bug; eps/T_ncdm can become too big for the exponential when m>>T.
+       *dlnf0_dlnq_ncdm  = 0;
+     }else{
+       *dlnf0_dlnq_ncdm = (-q*(1+z)*(1+z)/(T_ncdm*sqrt(q*q*(1+z)*(1+z)-mu_ncdm))*(f0+f0*f0))*(q/f0);//sign TBC//1 extra qmax comes from dq
+       // printf("n_ncdm %d q %e dlnf0_dlnq_ncdm anal %e \n",n_ncdm,q/qmax,*dlnf0_dlnq_ncdm);
+
+       // printf("n_ncdm %d z %e *dlnf0_dlnq_ncdm  %e \n",n_ncdm,z,*dlnf0_dlnq_ncdm);
+       // *dlnf0_dlnq_ncdm = 1e-1;
+       // *dlnf0_dlnq_ncdm = 0;
+     }
+  }
+     // printf("here (1+z) %e ncdm %d mu_ncdm %e Tnu %e q %e eps %e Mncm %e  exp((eps-mu_ncdm)/T_ncdm) %e f0 %e\n",1+z,n_ncdm,mu_ncdm,T_ncdm, q,eps,pba->m_ncdm_in_eV[n_ncdm],exp((eps-mu_ncdm)/T_ncdm),f0);
 
 
+  //
+  //
+  if(num == 1){
+    // OLD NUMERICAL WAY OF EXTRACTING THE DERIVATIVE; kept for comparison.
+        q/=qmax;
 
+        class_call(background_ncdm_distribution(&pbadist,q,&f0,z),
+                   pba->error_message,pba->error_message);
+
+        // printf("q %e qmax %e  f0 %e\n",q,qmax,f0);
+
+        for (index_q=0; index_q<pba->q_size_ncdm[n_ncdm]; index_q++) {
+          q_loop = pba->q_ncdm[n_ncdm][index_q];
+       //Loop to find appropriate dq:
+       for(tolexp=_PSD_DERIVATIVE_EXP_MIN_; tolexp<_PSD_DERIVATIVE_EXP_MAX_; tolexp++){
+
+         if (index_q == 0){
+           dq = MIN((0.5-ppr->smallest_allowed_variation)*q_loop,2*exp(tolexp)*(pba->q_ncdm[n_ncdm][index_q+1]-q));
+         }
+         else if (index_q == pba->q_size_ncdm[n_ncdm]-1){
+           dq = exp(tolexp)*2.0*(pba->q_ncdm[n_ncdm][index_q]-pba->q_ncdm[n_ncdm][index_q-1]);
+         }
+         else{
+           dq = exp(tolexp)*(pba->q_ncdm[n_ncdm][index_q+1]-pba->q_ncdm[n_ncdm][index_q-1]);
+         }
+
+         class_call(background_ncdm_distribution(&pbadist,q_loop-2*dq,&f0m2,z),
+                    pba->error_message,pba->error_message);
+         class_call(background_ncdm_distribution(&pbadist,q_loop+2*dq,&f0p2,z),
+                    pba->error_message,pba->error_message);
+
+         if (fabs((f0p2-f0m2)/f0)>sqrt(ppr->smallest_allowed_variation)) break;
+       }
+
+       class_call(background_ncdm_distribution(&pbadist,q_loop-dq,&f0m1,z),
+                  pba->error_message,pba->error_message);
+       class_call(background_ncdm_distribution(&pbadist,q_loop+dq,&f0p1,z),
+                  pba->error_message,pba->error_message);
+       //5 point estimate of the derivative:
+       df0dq = (+f0m2-8*f0m1+8*f0p1-f0p2)/12.0/dq;
+       // printf("q %e. dq = %e. df0dq = %e.  dlnf0_dlnq_ncdm= %e. f0 =%e.\n",q,dq,df0dq,q/f0*df0dq,f0);
+       //Avoid underflow in extreme tail:
+       if (fabs(f0)==0.)
+         pba->dlnf0_dlnq_ncdm[n_ncdm][index_q] = -q_loop*qmax; /* valid for whatever f0 with exponential tail in exp(-q) */
+       else if (f0==1e-40 || isinf(fabs(df0dq)))
+         pba->dlnf0_dlnq_ncdm[n_ncdm][index_q] = 0; /* to avoid bug */
+       else
+         pba->dlnf0_dlnq_ncdm[n_ncdm][index_q] = q_loop/f0*df0dq;
+
+       if(isinf(fabs(pba->dlnf0_dlnq_ncdm[n_ncdm][index_q])) || isnan(fabs(pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]))){
+         // printf("n_ncdm %d index_q %d pba->dlnf0_dlnq_ncdm[n_ncdm][index_q] %e\n",n_ncdm,index_q, pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]);
+         pba->dlnf0_dlnq_ncdm[n_ncdm][index_q] = 0;
+       }
+       // printf("dlnf0_dlnq_ncdm anal %e dlnf0_dlnq_ncdm num %e \n",*dlnf0_dlnq_ncdm,pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]);
+       // printf("q %e dlnf0_dlnq_ncdm num %e \n",q,pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]);
+       if(q == q_loop){
+         // printf("dlnf0_dlnq_ncdm anal %e dlnf0_dlnq_ncdm num %e \n",*dlnf0_dlnq_ncdm,pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]);
+         *dlnf0_dlnq_ncdm =   pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
+         // printf("n_ncdm %d q %e dlnf0_dlnq_ncdm num %e \n",n_ncdm,q,pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]);
+         break;
+
+       }
+     }
   }
 
 
+
+  return _SUCCESS_;
+}
+
+int get_q_max_perts(struct background *pba, int n_ncdm, double a, double M,double * qmax){
+
+  double T_ncdm;
+  double mu_ncdm;
+  class_call(interpolate_T_and_mu_at_z(pba,n_ncdm,1./a-1.,&T_ncdm,&mu_ncdm),
+  pba->error_message,
+  pba->error_message);
+  printf("a %e T %e M %e\n",a,T_ncdm,M);
+
+  if(20*T_ncdm > 3 *M){
+    *qmax = pow(20*20*T_ncdm*T_ncdm-(M*M),0.5)*a;
+  }else{
+    *qmax = pow(8*M*M,0.5)*a;
+  }
   return _SUCCESS_;
 }
