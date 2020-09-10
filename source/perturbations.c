@@ -4887,9 +4887,16 @@ int perturb_vector_init(
             }
 
 
+            if(1./a-1. <= pba->z_maj[pba->len_maj]  && ppt->use_majoron_security == _TRUE_ && pba->ncdm_background_distribution[n_ncdm] == _majoron_ ){
+              ppv->y[ppv->index_pt_psi0_ncdm1+ncdm_l_size*n_ncdm] = 0;
+              ppv->y[ppv->index_pt_psi0_ncdm1+ncdm_l_size*n_ncdm+1]  = 0;
+              ppv->y[ppv->index_pt_psi0_ncdm1+ncdm_l_size*n_ncdm+2] = 0;
+            }else{
             ppv->y[ppv->index_pt_psi0_ncdm1+ncdm_l_size*n_ncdm] *=factor/ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm];
             ppv->y[ppv->index_pt_psi0_ncdm1+ncdm_l_size*n_ncdm+1] *=k*factor/rho_plus_p_ncdm;
             ppv->y[ppv->index_pt_psi0_ncdm1+ncdm_l_size*n_ncdm+2] *=2.0/3.0*factor/rho_plus_p_ncdm;
+            }
+
           }
         }
       }
@@ -6801,18 +6808,23 @@ int perturb_total_stress_energy(
                 ppw->delta_ncdm[n_ncdm] = y[idx];
                 ppw->theta_ncdm[n_ncdm] = y[idx+1];
                 ppw->shear_ncdm[n_ncdm] = y[idx+2];
+                ppw->delta_rho += rho_ncdm_bg*ppw->delta_ncdm[n_ncdm];
+                ppw->rho_plus_p_theta += rho_plus_p_ncdm*ppw->theta_ncdm[n_ncdm];
+                ppw->rho_plus_p_shear += rho_plus_p_ncdm*ppw->shear_ncdm[n_ncdm];
+                ppw->delta_p += cg2_ncdm*rho_ncdm_bg*ppw->delta_ncdm[n_ncdm];
               }
             }else{
               ppw->delta_ncdm[n_ncdm] = y[idx];
               ppw->theta_ncdm[n_ncdm] = y[idx+1];
               ppw->shear_ncdm[n_ncdm] = y[idx+2];
+              ppw->delta_rho += rho_ncdm_bg*ppw->delta_ncdm[n_ncdm];
+              ppw->rho_plus_p_theta += rho_plus_p_ncdm*ppw->theta_ncdm[n_ncdm];
+              ppw->rho_plus_p_shear += rho_plus_p_ncdm*ppw->shear_ncdm[n_ncdm];
+              ppw->delta_p += cg2_ncdm*rho_ncdm_bg*ppw->delta_ncdm[n_ncdm];
             }
           }
 
-          ppw->delta_rho += rho_ncdm_bg*ppw->delta_ncdm[n_ncdm];
-          ppw->rho_plus_p_theta += rho_plus_p_ncdm*ppw->theta_ncdm[n_ncdm];
-          ppw->rho_plus_p_shear += rho_plus_p_ncdm*ppw->shear_ncdm[n_ncdm];
-          ppw->delta_p += cg2_ncdm*rho_ncdm_bg*ppw->delta_ncdm[n_ncdm];
+
 
           ppw->rho_plus_p_tot += rho_plus_p_ncdm;
 
@@ -9324,18 +9336,26 @@ int perturb_derivs(double tau,
             q = pba->q_ncdm[n_ncdm][index_q]*qmax;
             dlnf0_dlnq=0;
             dlnf0_dz=0;
-            if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
-              // if (1./a-1. >= 1.05*pba->z_maj[pba->len_maj] && 1./a-1. <= 1.95*pba->z_maj[0]){
+            if(ppt->use_majoron_security == _TRUE_ && 1./a-1. <= pba->z_maj[pba->len_maj] && pba->ncdm_background_distribution[n_ncdm] == _majoron_ )dlnf0_dlnq =0;
+            else if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
+              // if (1./a-1. >= 1.05*pba->z_maj[pba->len_maj] && 1./a-1. <= 0.95*pba->z_maj[0]){
+              // if (1./a-1. > 10){
+                // printf("here\n");
                 class_call(compute_dfdlnq_ncdm(ppr,pba,n_ncdm,1./a-1.,q,&dlnf0_dlnq),
                 pba->error_message,
                 pba->error_message);
-                // if(n_ncdm == 1 &&  1./a-1. < pba->z_maj[pba->len_maj] )dlnf0_dlnq = 0;
+                // printf("n_ncdm %d dlnf0_dlnq %e \n",n_ncdm,dlnf0_dlnq);
+              // }
+              //   // if(n_ncdm == 1)
+              // else  dlnf0_dlnq =0;
+                // else dlnf0_dlnq = 0;
                 dTdz = -pvecback[pba->index_bg_dT_ncdm1+n_ncdm]/pvecback[pba->index_bg_H];//conversion from dT/dtau to dT/dz
                 dmudz = -pvecback[pba->index_bg_dMu_ncdm1+n_ncdm]/pvecback[pba->index_bg_H];
                 class_call(compute_dlnfdz_ncdm(pba,n_ncdm,1./a-1.,q,dTdz,dmudz,&dlnf0_dz),
                 pba->error_message,
                 pba->error_message);
-                // if(n_ncdm == 1)dlnf0_dz=0;
+                // if(n_ncdm == 1)
+                // dlnf0_dz=0;
 
               // }
             }else{
@@ -9734,8 +9754,6 @@ int perturb_derivs(double tau,
             class_call(compute_dfdlnq_ncdm(ppr,pba,n_ncdm,1./a-1.,q,&dlnf0_dlnq),
             pba->error_message,
             pba->error_message);
-            if(n_ncdm == 1)dlnf0_dlnq = 0;
-
             dTdz = -pvecback[pba->index_bg_dT_ncdm1+n_ncdm]/pvecback[pba->index_bg_H];//conversion from dT/dtau to dT/dz
             dmudz = -pvecback[pba->index_bg_dMu_ncdm1+n_ncdm]/pvecback[pba->index_bg_H];
             class_call(compute_dlnfdz_ncdm(pba,n_ncdm,1./a-1.,q,dTdz,dmudz,&dlnf0_dz),
@@ -10556,23 +10574,22 @@ int compute_dlnfdz_ncdm(  struct background *pba,
     double T_ncdm, mu_ncdm, qmax, eps,qz,f0;
 
     interpolate_T_and_mu_at_z(pba,n_ncdm,z,&T_ncdm,&mu_ncdm);
-    if((dTdz)>0)dTdz=0;
-    if((dmudz)>0)dmudz=0;
+    // if((dTdz)>0)dTdz=0;
+    // if((dmudz)>0)dmudz=0;
     class_call(get_q_max(pba,n_ncdm,1/(1+z),pba->m_ncdm_in_eV[n_ncdm],&qmax),
     pba->error_message,
     pba->error_message);
     // qmax = pba->ncdm_qmax[n_ncdm];
     qz = q*(1+z);
     // eps = sqrt(qz*qz+pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]/(1+z)/(1+z));//we define q in units of qmax.
-    eps = sqrt(qz*qz);//we define q in units of qmax.
-    if(mu_ncdm > eps) eps = sqrt(qz*qz + pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]);
+    eps = sqrt(qz*qz + pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]);
     if(pba->ncdm_background_distribution[n_ncdm]==_majoron_){
       f0=1.0/pow(2*_PI_,3)*(1./(exp((eps-mu_ncdm)/T_ncdm)-1));
       *dlnfdz_ncdm=-exp((eps-mu_ncdm)/T_ncdm)*(dTdz*(mu_ncdm-eps)+T_ncdm*(qz*qz/(1+z)/eps-dmudz))*f0/T_ncdm/T_ncdm;
     }
     else{
-      f0=1.0/pow(2*_PI_,3)*(1./(exp((eps-mu_ncdm)/T_ncdm)+1));
-      *dlnfdz_ncdm=-exp((eps-mu_ncdm)/T_ncdm)*(dTdz*(mu_ncdm-eps)+T_ncdm*(qz*qz/(1+z)/eps-dmudz))*f0/T_ncdm/T_ncdm;//identical to SW's formula.
+      f0=1.0/pow(2*_PI_,3)*(1./(exp((qz-mu_ncdm)/T_ncdm)+1));
+      *dlnfdz_ncdm=-exp((qz-mu_ncdm)/T_ncdm)*(dTdz*(mu_ncdm-qz)+T_ncdm*(qz/(1+z)-dmudz))*f0/T_ncdm/T_ncdm;//identical to SW's formula.
     }
     // printf("dlnfdz_ncdm %e dmudz %e dTdz %e\n",dlnfdz_ncdm,dmudz,dTdz);
     if(isinf(*dlnfdz_ncdm))*dlnfdz_ncdm=0;
@@ -10582,22 +10599,23 @@ int compute_dlnfdz_ncdm(  struct background *pba,
 }
 
 //To be adapted.
-int compute_dfdlnq_ncdm(  struct precision *ppr,
-                          struct background *pba,
-                          int n_ncdm,
-                          double z,
-                          double q,
-                          double * dlnf0_dlnq_ncdm){
+int compute_dfdlnq_ncdm(struct precision *ppr,
+                        struct background *pba,
+                        int n_ncdm,
+                        double z,
+                        double q,
+                        double * dlnf0_dlnq_ncdm){
   int index_q,tolexp,row,status,filenum;
   double f0m2= 0,f0m1= 0,f0= 0,f0p1= 0,f0p2= 0,dq= 0,df0dq= 0,tmp1= 0,tmp2= 0,f0back= 0, q_loop = 0;
   double * pvecback;
-  double T_ncdm, mu_ncdm, qmax, eps;
+  double T_ncdm, mu_ncdm, qmax, eps, qz;
   struct background_parameters_for_distributions pbadist;
   //
   pbadist.pba = pba;
   pbadist.n_ncdm = n_ncdm;
   int num = 0;//switch to 1 for numerical calculation
   int anal = 1;
+  double q_int;
 
 
 
@@ -10618,30 +10636,48 @@ int compute_dfdlnq_ncdm(  struct precision *ppr,
      // eps = sqrt(q*q*qmax*qmax*(1+z)*(1+z)+pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]/(1+z)/(1+z));//we define q in units of qmax.//not yet fully clear on why m needs to be divided by (1+z) here.
 
   if(anal == 1){
-     eps = sqrt(q*q*(1+z)*(1+z));//we define q in units of qmax.//not yet fully clear on why m needs to be divided by (1+z) here.
-     //
-     // mu_ncdm = 0;
-     if(mu_ncdm > eps) eps = sqrt(q*q*(1+z)*(1+z) + pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]);
-
+    qz = q*(1+z);
      if(pba->ncdm_background_distribution[n_ncdm]==_majoron_){
+       eps = sqrt(qz*qz+ pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]);
        f0=1.0/pow(2*_PI_,3)*(1./(exp((eps-mu_ncdm)/T_ncdm)-1));
+       if(f0 == 0 || f0 < 0 ){
+         f0 = 1e-40; //to avoid bug; eps/T_ncdm can become too big for the exponential when m>>T.
+         *dlnf0_dlnq_ncdm  = 0;
+       }else{
+         // *dlnf0_dlnq_ncdm = (-qz*(1+z)/(T_ncdm*sqrt(qz*qz-mu_ncdm))*(f0+f0*f0))*(q/f0);//sign TBC//1 extra qmax comes from dq
+         // *dlnf0_dlnq_ncdm = -1.0*qz*(1+z)*(exp((eps-mu_ncdm)/T_ncdm))/(eps*T_ncdm)*(q/f0)*f0*pow(2*_PI_,3)*f0*pow(2*_PI_,3);//sign TBC//1 extra qmax comes from dq
+         *dlnf0_dlnq_ncdm = -(1+z)*qz*(exp((eps-mu_ncdm)/T_ncdm))/(pow(2*_PI_,3)*eps*T_ncdm*(exp((eps-mu_ncdm)/T_ncdm)-1)*(exp((eps-mu_ncdm)/T_ncdm)-1))*(q/f0);//sign TBC//1 extra qmax comes from dq
+         if(isnan(*dlnf0_dlnq_ncdm))*dlnf0_dlnq_ncdm=0;//can happen some time; TBC.
+         // printf("n_ncdm %d q %e dlnf0_dlnq_ncdm anal %e f0 %e \n",n_ncdm,q/qmax,*dlnf0_dlnq_ncdm,f0);
+
+         // printf("n_ncdm %d z %e *dlnf0_dlnq_ncdm  %e \n",n_ncdm,z,*dlnf0_dlnq_ncdm);
+         // *dlnf0_dlnq_ncdm = 1e-1;
+         // *dlnf0_dlnq_ncdm = 0;
+       }
+
      }
      else{
+       eps = qz;
        f0=1.0/pow(2*_PI_,3)*(1./(exp((eps-mu_ncdm)/T_ncdm)+1));
+       if(f0 == 0 || f0 < 0){
+         f0 = 1e-40; //to avoid bug; eps/T_ncdm can become too big for the exponential when m>>T.
+         *dlnf0_dlnq_ncdm  = 0;
+       }else{
+         // *dlnf0_dlnq_ncdm = (-qz*(1+z)/(T_ncdm*sqrt(qz*qz-mu_ncdm))*(f0+f0*f0))*(q/f0);//sign TBC//1 extra qmax comes from dq
+         // *dlnf0_dlnq_ncdm = -1.0*qz*(1+z)*(exp((eps-mu_ncdm)/T_ncdm))/(eps*T_ncdm)*(q/f0)*f0*pow(2*_PI_,3)*f0*pow(2*_PI_,3);//sign TBC//1 extra qmax comes from dq
+         *dlnf0_dlnq_ncdm = -(1+z)*(exp((eps-mu_ncdm)/T_ncdm))/(pow(2*_PI_,3)*T_ncdm*(exp((eps-mu_ncdm)/T_ncdm)+1)*(exp((eps-mu_ncdm)/T_ncdm)+1))*(q/f0);//sign TBC//1 extra qmax comes from dq
+         if(isnan(*dlnf0_dlnq_ncdm))*dlnf0_dlnq_ncdm=0;//can happen some time; TBC.
+
+         // printf("n_ncdm %d q %e dlnf0_dlnq_ncdm anal %e f0 %e \n",n_ncdm,q/qmax,*dlnf0_dlnq_ncdm,f0);
+
+         // printf("n_ncdm %d z %e *dlnf0_dlnq_ncdm  %e \n",n_ncdm,z,*dlnf0_dlnq_ncdm);
+         // *dlnf0_dlnq_ncdm = 1e-1;
+         // *dlnf0_dlnq_ncdm = 0;
+       }
      }
 
 
-     if(f0 == 0){
-       f0 = 1e-40; //to avoid bug; eps/T_ncdm can become too big for the exponential when m>>T.
-       *dlnf0_dlnq_ncdm  = 0;
-     }else{
-       *dlnf0_dlnq_ncdm = (-q*(1+z)*(1+z)/(T_ncdm*sqrt(q*q*(1+z)*(1+z)-mu_ncdm))*(f0+f0*f0))*(q/f0);//sign TBC//1 extra qmax comes from dq
-       // printf("n_ncdm %d q %e dlnf0_dlnq_ncdm anal %e \n",n_ncdm,q/qmax,*dlnf0_dlnq_ncdm);
 
-       // printf("n_ncdm %d z %e *dlnf0_dlnq_ncdm  %e \n",n_ncdm,z,*dlnf0_dlnq_ncdm);
-       // *dlnf0_dlnq_ncdm = 1e-1;
-       // *dlnf0_dlnq_ncdm = 0;
-     }
   }
      // printf("here (1+z) %e ncdm %d mu_ncdm %e Tnu %e q %e eps %e Mncm %e  exp((eps-mu_ncdm)/T_ncdm) %e f0 %e\n",1+z,n_ncdm,mu_ncdm,T_ncdm, q,eps,pba->m_ncdm_in_eV[n_ncdm],exp((eps-mu_ncdm)/T_ncdm),f0);
 
@@ -10650,9 +10686,9 @@ int compute_dfdlnq_ncdm(  struct precision *ppr,
   //
   if(num == 1){
     // OLD NUMERICAL WAY OF EXTRACTING THE DERIVATIVE; kept for comparison.
-        q/=qmax;
+        q_int = q/qmax;
 
-        class_call(background_ncdm_distribution(&pbadist,q,&f0,z),
+        class_call(background_ncdm_distribution(&pbadist,q_int,&f0,z),
                    pba->error_message,pba->error_message);
 
         // printf("q %e qmax %e  f0 %e\n",q,qmax,f0);
@@ -10663,7 +10699,7 @@ int compute_dfdlnq_ncdm(  struct precision *ppr,
        for(tolexp=_PSD_DERIVATIVE_EXP_MIN_; tolexp<_PSD_DERIVATIVE_EXP_MAX_; tolexp++){
 
          if (index_q == 0){
-           dq = MIN((0.5-ppr->smallest_allowed_variation)*q_loop,2*exp(tolexp)*(pba->q_ncdm[n_ncdm][index_q+1]-q));
+           dq = MIN((0.5-ppr->smallest_allowed_variation)*q_loop,2*exp(tolexp)*(pba->q_ncdm[n_ncdm][index_q+1]-q_loop));
          }
          else if (index_q == pba->q_size_ncdm[n_ncdm]-1){
            dq = exp(tolexp)*2.0*(pba->q_ncdm[n_ncdm][index_q]-pba->q_ncdm[n_ncdm][index_q-1]);
@@ -10689,7 +10725,7 @@ int compute_dfdlnq_ncdm(  struct precision *ppr,
        // printf("q %e. dq = %e. df0dq = %e.  dlnf0_dlnq_ncdm= %e. f0 =%e.\n",q,dq,df0dq,q/f0*df0dq,f0);
        //Avoid underflow in extreme tail:
        if (fabs(f0)==0.)
-         pba->dlnf0_dlnq_ncdm[n_ncdm][index_q] = -q_loop*qmax; /* valid for whatever f0 with exponential tail in exp(-q) */
+         pba->dlnf0_dlnq_ncdm[n_ncdm][index_q] = -q_loop; /* valid for whatever f0 with exponential tail in exp(-q) */
        else if (f0==1e-40 || isinf(fabs(df0dq)))
          pba->dlnf0_dlnq_ncdm[n_ncdm][index_q] = 0; /* to avoid bug */
        else
@@ -10701,10 +10737,10 @@ int compute_dfdlnq_ncdm(  struct precision *ppr,
        }
        // printf("dlnf0_dlnq_ncdm anal %e dlnf0_dlnq_ncdm num %e \n",*dlnf0_dlnq_ncdm,pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]);
        // printf("q %e dlnf0_dlnq_ncdm num %e \n",q,pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]);
-       if(q == q_loop){
+       if(q_int == q_loop){
          // printf("dlnf0_dlnq_ncdm anal %e dlnf0_dlnq_ncdm num %e \n",*dlnf0_dlnq_ncdm,pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]);
          *dlnf0_dlnq_ncdm =   pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
-         // printf("n_ncdm %d q %e dlnf0_dlnq_ncdm num %e \n",n_ncdm,q,pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]);
+         // printf("n_ncdm %d q %e dlnf0_dlnq_ncdm num %e f0 %e \n",n_ncdm,q_int,pba->dlnf0_dlnq_ncdm[n_ncdm][index_q], f0);
          break;
 
        }
