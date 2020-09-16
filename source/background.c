@@ -1362,8 +1362,9 @@ int interpolate_T_and_mu_at_z(struct background *pba,int n_ncdm, double z,double
   //If not: extrapolate using analytical formulae
  int last_index;
  double z_nrel_maj = -1,z_nrel_ncdm = -1; //dummy value for condition
-
-  if (z >= pba->z_maj[pba->len_maj] && z <= pba->z_maj[0]){
+ int start_indx=20;
+ 
+  if (z >= pba->z_maj[pba->len_maj] && z <= pba->z_maj[start_indx]){
 
     if(n_ncdm == pba->entry_is_M_phi){
       /** - interpolate from pre-computed table with array_interpolate() */
@@ -1423,17 +1424,16 @@ int interpolate_T_and_mu_at_z(struct background *pba,int n_ncdm, double z,double
                  pba->error_message,
                  pba->error_message);
     }
-  }else if(z > pba->z_maj[0]){
+  }else if(z > pba->z_maj[start_indx]){
         //at early times
         if(n_ncdm == pba->entry_is_M_phi){
-          // *mu_ncdm = (pba->Mu_maj[0]-pba->m_ncdm_in_eV[n_ncdm])*(1+z)/(1+pba->z_maj[0]); //should we take the mass into account?
-          *mu_ncdm = (pba->Mu_maj[0])*(1+z)/(1+pba->z_maj[0]);
-          *T_ncdm = pba->T_maj[0]*(1+z)/(1+pba->z_maj[0]);
+          *mu_ncdm = (pba->Mu_maj[start_indx])*(1+z)/(1+pba->z_maj[start_indx]);
+          *T_ncdm = pba->T_maj[start_indx]*(1+z)/(1+pba->z_maj[start_indx]);
         }
         else{
           // *mu_ncdm = (pba->Mu_nu[0]-pba->m_ncdm_in_eV[n_ncdm])*(1+z)/(1+pba->z_maj[0]);
-          *mu_ncdm = (pba->Mu_nu[0])*(1+z)/(1+pba->z_maj[0]);
-          *T_ncdm = pba->T_nu[0]*(1+z)/(1+pba->z_maj[0]);
+          *mu_ncdm = (pba->Mu_nu[start_indx])*(1+z)/(1+pba->z_maj[start_indx]);
+          *T_ncdm = pba->T_nu[start_indx]*(1+z)/(1+pba->z_maj[start_indx]);
         }
   }
   else{//at late times
