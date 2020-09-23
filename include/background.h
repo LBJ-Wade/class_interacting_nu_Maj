@@ -561,6 +561,13 @@ extern "C" {
 // SJW
  int interpolate_T_and_mu_at_z(struct background *pba,int n_ncdm,double z,double *T_ncdm, double *mu_ncdm);
  int interpolate_background_ncdm_distribution(struct background *pba, int n_ncdm, double *qtable,double qsize, double z, double *ftable);
+ int background_ncdm_distribution_at_eps(
+                                  struct background * pba,
+                                  double z,
+                                  int n_ncdm,
+                                  double eps,
+                                  double * f0
+                                );
  int get_q_max(struct background *pba, int n_ncdm, double a, double M,double * qmax);
  int background_MB_approx(struct background *pba, int *lenIndx);
  int RK_Eval(struct background *pba, double GammaPhi, double zhold, double tmajH, double tnuH, double muMh, double muNh, double mMaj, double tcur, double mNu, double k[5]);

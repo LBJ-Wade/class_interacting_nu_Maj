@@ -1112,6 +1112,7 @@ int input_read_parameters(
       ppr->tol_ncdm = ppr->tol_ncdm_newtonian;
 
     /* Quadrature modes, 0 is qm_auto. */
+    class_read_int("integral_collision_term_max_steps",ppt->integral_collision_term_max_steps);
     class_read_list_of_integers_or_default("Quadrature strategy",pba->ncdm_quadrature_strategy,0,N_ncdm);
     /* Number of momentum bins */
     class_read_list_of_integers_or_default("Number of momentum bins background",pba->ncdm_input_q_size_bg,-1,N_ncdm);
@@ -3417,6 +3418,7 @@ int input_default_params(
   ppt->selection_mean[0]=1.;
   ppt->selection_width[0]=0.1;
 
+  ppt->integral_collision_term_max_steps = 300;
   /** - primordial structure */
 
   ppm->primordial_spec_type = analytic_Pk;

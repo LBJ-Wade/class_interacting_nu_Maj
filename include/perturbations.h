@@ -435,6 +435,7 @@ struct perturbs
   ErrorMsg error_message; /**< zone for writing error messages */
 
   short use_majoron_security;/**< VP:If set to yes, the majoron is ignored when z drops below the last z value in the majoron table.*/
+  int integral_collision_term_max_steps;/**< VP:number of steps to perform integral involved in the collision term between neutrinos and majoron.*/
 
   //@}
 
@@ -917,17 +918,18 @@ extern "C" {
                                   double * pvecthermo,
                                   struct perturb_workspace * ppw
                                   );
-int interpolate_forpsi_table_at_eps(
+int interpolate_psi_table_at_eps(
                         struct background *pba,
                         double a,
                         double eps,
-                        double * forpsi_table,
-                        double * dd_forpsi_table,
+                        double * psi_table,
+                        double * dd_psi_table,
                         int n_ncdm,
-                        double * forpsi_at_eps
+                        double * psi_at_eps
                         ) ;
 
 int evaluate_collision_terms_nuphi( struct background * pba,
+                                 struct perturbs * ppt,
                                  struct perturb_vector * pv,
                                  double a,
                                  double * psi_table,
