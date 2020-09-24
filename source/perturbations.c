@@ -10358,9 +10358,10 @@ int interpolate_psi_table_at_eps(
 
   }else{
     // kill the integral if outside of boundaries for simplicity
+    *psi_at_eps = 0;
     // assume constant
-    if(eps < epsilon_min)*psi_at_eps = psi_table[0];
-    if(eps > epsilon_max)*psi_at_eps = psi_table[pba->q_size_ncdm[n_ncdm]-1];
+    // if(eps < epsilon_min)*psi_at_eps = psi_table[0];
+    // if(eps > epsilon_max)*psi_at_eps = psi_table[pba->q_size_ncdm[n_ncdm]-1];
     // printf("bad! eps %e psi_at_eps %e\n",eps, *psi_at_eps);
 
   }
@@ -10393,9 +10394,9 @@ int evaluate_collision_terms_nuphi( struct background * pba,
   double epsilon_min, epsilon_max,logepsilon;
   double max_steps = ppt->integral_collision_term_max_steps;
   int sign;
-  int integral_is_log = _TRUE_;
+  int integral_is_log = _FALSE_;
   *Collision_l = 0;
-
+ double T_ncdm,mu_ncdm;
 
 
   class_call(get_q_max(pba,n_ncdm,a,pba->m_ncdm_in_eV[n_ncdm],&qmax_ncdm),
@@ -10416,8 +10417,30 @@ int evaluate_collision_terms_nuphi( struct background * pba,
     index_q_phi = index_q_fix;
     q_phi = pba->q_ncdm[n_ncdm][index_q_phi]*qmax_ncdm;
     epsilon_phi =sqrt(q_phi*q_phi+a*a*pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]);
-    epsilon_min = m_star/2/pba->M_phi*(epsilon_phi*sqrt(1+4*pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]/m_star/m_star)-q_phi);
-    epsilon_max = m_star/2/pba->M_phi*(epsilon_phi*sqrt(1+4*pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]/m_star/m_star)+q_phi);
+    epsilon_min = m_star/2/pba->M_phi*(epsilon_phi*sqrt(1+4*pba->m_ncdm_in_eV[n_ncdm_nu]*pba->m_ncdm_in_eV[n_ncdm_nu]/m_star/m_star)-q_phi);
+    epsilon_max = m_star/2/pba->M_phi*(epsilon_phi*sqrt(1+4*pba->m_ncdm_in_eV[n_ncdm_nu]*pba->m_ncdm_in_eV[n_ncdm_nu]/m_star/m_star)+q_phi);
+
+    /// a bunch of prints for debugging
+
+    // class_call(get_q_max(pba,n_ncdm_nu,a,pba->m_ncdm_in_eV[n_ncdm_nu],&qmax_ncdm),
+    // pba->error_message,
+    // pba->error_message);
+    // class_call(interpolate_T_and_mu_at_z(pba,n_ncdm_nu,1./a-1.,&T_ncdm,&mu_ncdm),
+    // pba->error_message,
+    // pba->error_message);
+    // printf("for the neutrino qphi %e epsilon peak %e min %e max %e min perts %e max perts %e\n", q_phi,pow(a*(3*T_ncdm+pba->m_ncdm_in_eV[n_ncdm_nu])*a*(3*T_ncdm+pba->m_ncdm_in_eV[n_ncdm_nu])+a*a*pba->m_ncdm_in_eV[n_ncdm_nu]*pba->m_ncdm_in_eV[n_ncdm_nu],0.5),epsilon_min,epsilon_max, sqrt(pba->q_ncdm[n_ncdm_nu][0]*pba->q_ncdm[n_ncdm_nu][0]*qmax_ncdm*qmax_ncdm+a*a*pba->m_ncdm_in_eV[n_ncdm_nu]*pba->m_ncdm_in_eV[n_ncdm_nu]),sqrt(pba->q_ncdm[n_ncdm_nu][pba->q_size_ncdm[n_ncdm_nu]-1]*pba->q_ncdm[n_ncdm_nu][pba->q_size_ncdm[n_ncdm_nu]-1]*qmax_ncdm*qmax_ncdm+a*a*pba->m_ncdm_in_eV[n_ncdm_nu]*pba->m_ncdm_in_eV[n_ncdm_nu]));
+
+    // class_call(get_q_max(pba,n_ncdm_nu,a,pba->m_ncdm_in_eV[n_ncdm_nu],&qmax_ncdm),
+    // pba->error_message,
+    // pba->error_message);
+    // printf("n_ncdm %d\n", n_ncdm);
+    // if(sqrt(pba->q_ncdm[n_ncdm_nu][pba->q_size_ncdm[n_ncdm_nu]-1]*pba->q_ncdm[n_ncdm_nu][pba->q_size_ncdm[n_ncdm_nu]-1]*qmax_ncdm*qmax_ncdm+a*a*pba->m_ncdm_in_eV[n_ncdm_nu]*pba->m_ncdm_in_eV[n_ncdm_nu]) < epsilon_max)
+    //   printf("eps_max integral %e eps_max perts %e\n",epsilon_max,sqrt(pba->q_ncdm[n_ncdm_nu][pba->q_size_ncdm[n_ncdm_nu]-1]*pba->q_ncdm[n_ncdm_nu][pba->q_size_ncdm[n_ncdm_nu]-1]*qmax_ncdm*qmax_ncdm+a*a*pba->m_ncdm_in_eV[n_ncdm_nu]*pba->m_ncdm_in_eV[n_ncdm_nu]));
+    // if(sqrt(pba->q_ncdm[n_ncdm_nu][0]*pba->q_ncdm[n_ncdm_nu][0]*qmax_ncdm*qmax_ncdm+a*a*pba->m_ncdm_in_eV[n_ncdm_nu]*pba->m_ncdm_in_eV[n_ncdm_nu])>epsilon_min)
+    //   printf("eps_min integral %e eps_min perts %e\n",epsilon_min,sqrt(pba->q_ncdm[n_ncdm_nu][0]*pba->q_ncdm[n_ncdm_nu][0]*qmax_ncdm*qmax_ncdm+a*a*pba->m_ncdm_in_eV[n_ncdm_nu]*pba->m_ncdm_in_eV[n_ncdm_nu]));
+    // class_call(get_q_max(pba,n_ncdm,a,pba->m_ncdm_in_eV[n_ncdm],&qmax_ncdm),
+    // pba->error_message,
+    // pba->error_message);
   }
   else{
     n_ncdm_nu = n_ncdm;
@@ -10429,7 +10452,26 @@ int evaluate_collision_terms_nuphi( struct background * pba,
     epsilon_min = m_star*pba->M_phi/2/pba->m_ncdm_in_eV[n_ncdm_nu]/pba->m_ncdm_in_eV[n_ncdm_nu]
               *(epsilon_nu*sqrt(1+4*pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]/m_star/m_star)-q_nu);
     epsilon_max = m_star*pba->M_phi/2/pba->m_ncdm_in_eV[n_ncdm_nu]/pba->m_ncdm_in_eV[n_ncdm_nu]
-              *(epsilon_nu*sqrt(1+4*pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]/m_star/m_star)+q_nu);
+              *(epsilon_nu*sqrt(1+4*pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]/m_star/m_star));
+
+
+    /// a bunch of prints for debugging
+    // class_call(get_q_max(pba,pba->entry_is_M_phi,a,pba->m_ncdm_in_eV[pba->entry_is_M_phi],&qmax_ncdm),
+    // pba->error_message,
+    // pba->error_message);
+    // class_call(interpolate_T_and_mu_at_z(pba,pba->entry_is_M_phi,1./a-1.,&T_ncdm,&mu_ncdm),
+    // pba->error_message,
+    // pba->error_message);
+    // // printf("for the majoron q_nu %e epsilon peak %e min %e max %e min perts %e max perts %e\n", q_nu,pow(a*(3*T_ncdm+pba->M_phi)*a*(3*T_ncdm+pba->M_phi)+a*a*pba->M_phi*pba->M_phi,0.5),epsilon_min,epsilon_max, sqrt(pba->q_ncdm[pba->entry_is_M_phi][0]*pba->q_ncdm[pba->entry_is_M_phi][0]*qmax_ncdm*qmax_ncdm+a*a*pba->m_ncdm_in_eV[pba->entry_is_M_phi]*pba->m_ncdm_in_eV[pba->entry_is_M_phi]),sqrt(pba->q_ncdm[pba->entry_is_M_phi][pba->q_size_ncdm[pba->entry_is_M_phi]-1]*pba->q_ncdm[pba->entry_is_M_phi][pba->q_size_ncdm[pba->entry_is_M_phi]-1]*qmax_ncdm*qmax_ncdm+a*a*pba->m_ncdm_in_eV[pba->entry_is_M_phi]*pba->m_ncdm_in_eV[pba->entry_is_M_phi]));
+    //
+    // // if(index_q_fix==pv->q_size_ncdm[pba->entry_is_M_phi]-1)printf("eps_max integral %e eps_max perts %e\n",epsilon_max,sqrt(pba->q_ncdm[pba->entry_is_M_phi][pba->q_size_ncdm[pba->entry_is_M_phi]-1]*pba->q_ncdm[pba->entry_is_M_phi][pba->q_size_ncdm[pba->entry_is_M_phi]-1]*qmax_ncdm*qmax_ncdm+a*a*pba->m_ncdm_in_eV[pba->entry_is_M_phi]*pba->m_ncdm_in_eV[pba->entry_is_M_phi]));
+    // // if(sqrt(pba->q_ncdm[pba->entry_is_M_phi][pba->q_size_ncdm[pba->entry_is_M_phi]-1]*pba->q_ncdm[pba->entry_is_M_phi][pba->q_size_ncdm[pba->entry_is_M_phi]-1]*qmax_ncdm*qmax_ncdm+a*a*pba->m_ncdm_in_eV[pba->entry_is_M_phi]*pba->m_ncdm_in_eV[pba->entry_is_M_phi]) < epsilon_max)
+    // //   printf("eps_max integral %e eps_max perts %e\n",epsilon_max,sqrt(pba->q_ncdm[pba->entry_is_M_phi][pba->q_size_ncdm[pba->entry_is_M_phi]-1]*pba->q_ncdm[pba->entry_is_M_phi][pba->q_size_ncdm[pba->entry_is_M_phi]-1]*qmax_ncdm*qmax_ncdm+a*a*pba->m_ncdm_in_eV[pba->entry_is_M_phi]*pba->m_ncdm_in_eV[pba->entry_is_M_phi]));
+    // // if(sqrt(pba->q_ncdm[pba->entry_is_M_phi][0]*pba->q_ncdm[pba->entry_is_M_phi][0]*qmax_ncdm*qmax_ncdm+a*a*pba->m_ncdm_in_eV[pba->entry_is_M_phi]*pba->m_ncdm_in_eV[pba->entry_is_M_phi])>epsilon_min)
+    // //   printf("eps_min integral %e eps_min perts %e\n",epsilon_min,sqrt(pba->q_ncdm[pba->entry_is_M_phi][0]*pba->q_ncdm[pba->entry_is_M_phi][0]*qmax_ncdm*qmax_ncdm+a*a*pba->m_ncdm_in_eV[pba->entry_is_M_phi]*pba->m_ncdm_in_eV[pba->entry_is_M_phi]));
+    // class_call(get_q_max(pba,n_ncdm,a,pba->m_ncdm_in_eV[n_ncdm],&qmax_ncdm),
+    // pba->error_message,
+    // pba->error_message);
   }
 
   //we alloc table to interpolate the perturbations at the right energy

@@ -1547,7 +1547,7 @@ int get_q_max(struct background *pba, int n_ncdm, double a, double M,double * qm
     // *qmax = pow(3*3*M*M-(M*M),0.5)*a;
     *qmax = 20*T_ncdm*a; //VP: need to look into this
   }
-
+ // *qmax = 20*T_ncdm*a;
   return _SUCCESS_;
 }
 
