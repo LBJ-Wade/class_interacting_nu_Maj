@@ -1182,6 +1182,26 @@ int input_read_parameters(
     }else {
       ppt->use_majoron_security = _FALSE_;
     }
+    class_call(parser_read_string(pfc,
+                                  "include_collision_term",
+                                  &string1,
+                                  &flag1,
+                                  errmsg),
+               errmsg,
+               errmsg);
+
+    if (flag1 == _TRUE_){
+      if((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL)){
+        ppt->include_collision_term = _TRUE_;
+      }
+      else {
+        ppt->include_collision_term = _FALSE_;
+      }
+    }else {
+      ppt->include_collision_term = _FALSE_;
+    }
+
+
 
 
 

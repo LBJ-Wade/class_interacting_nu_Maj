@@ -5639,7 +5639,7 @@ int perturb_initial_conditions(struct precision * ppr,
 
           q = pba->q_ncdm[n_ncdm][index_q]*qmax;
           epsilon = sqrt(q*q+a*a*M*M);
-          dlnf0_dlnq = 0;
+          // dlnf0_dlnq = 0;
           // dlnf0_dz = 0;
           if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
             // if(n_ncdm == pba->entry_is_M_phi)
@@ -9334,8 +9334,8 @@ int perturb_derivs(double tau,
             // if(n_ncdm ==2){
 
             q = pba->q_ncdm[n_ncdm][index_q]*qmax;
-            dlnf0_dlnq=0;
-            dlnf0_dz=0;
+            // dlnf0_dlnq=0;
+            // dlnf0_dz=0;
             if(ppt->use_majoron_security == _TRUE_ && 1./a-1. <= pba->z_maj[pba->len_maj] && pba->ncdm_background_distribution[n_ncdm] == _majoron_ )dlnf0_dlnq =0;
             else if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
               // if (1./a-1. >= 1.05*pba->z_maj[pba->len_maj] && 1./a-1. <= 0.95*pba->z_maj[0]){
@@ -9356,7 +9356,7 @@ int perturb_derivs(double tau,
                 pba->error_message);
                 // if(n_ncdm == 1)
                 // dlnf0_dz=0;
-
+                // dlnf0_dlnq = 0;
               // }
             }else{
               dlnf0_dlnq =  pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
@@ -9368,12 +9368,15 @@ int perturb_derivs(double tau,
 
             /** VP: If neutrino have non-zero Gamma_phi we compute collision term*/
 
-            if(pba->Gamma_phi[n_ncdm] != 0){
-              // printf("dealing with ncdm %d at idx_q %d\n", n_ncdm,idx);
-
+            // if(pba->Gamma_phi[n_ncdm] != 0 && 1./a-1. >= pba->z_nrel[pba->entry_is_M_phi] && 1/a-1 >= pba->z_maj[pba->len_maj] && 1/a-1 <= 3000 && ppt->include_collision_term == _TRUE_){
+            if(pba->Gamma_phi[n_ncdm] != 0 && 1/a-1 >= pba->z_maj[pba->len_maj] && ppt->include_collision_term == _TRUE_){
+              // printf("dealing with ncdm %d at idx_q %d a %e\n", n_ncdm,index_q,a);
+              // if(index_q==5 && n_ncdm ==0 && k==1)printf("%e ",1/a-1);
               for(l=0; l<pv->l_max_ncdm[n_ncdm]; l++){
                   // if(n_ncdm == 1)printf("index nu should be %d\n", idx+l);
-                  evaluate_collision_terms_nuphi(pba,
+                // if((l == 0 || l == 2) && k ==1)
+                // if(k==1)
+                evaluate_collision_terms_nuphi(pba,
                                                 ppt,
                                                 pv,
                                                 a,
@@ -9384,13 +9387,16 @@ int perturb_derivs(double tau,
                                                 idx+l,
                                                 &pv->Collision_l[n_ncdm][l]);
                                                 // &Collision[l]);
+                // else pv->Collision_l[n_ncdm][l] = 0;
                 // printf("l %d collision %e !!\n",l,pv->Collision_l[n_ncdm][l]);
+                // if(index_q==5 && n_ncdm ==0 && k==1)printf("%e ",pv->Collision_l[n_ncdm][l]);
 
                 if(isnan(pv->Collision_l[n_ncdm][l]))pv->Collision_l[n_ncdm][l] = 0;
                 // pv->Collision_l[n_ncdm][l] = 0;
                 // Collision[l] = 0 ;
 
                 }
+                // if(index_q==5 && n_ncdm ==0 && k==1)printf("\n");
              }
              else{
                 for(l=0; l<pv->l_max_ncdm[n_ncdm]; l++)   pv->Collision_l[n_ncdm][l] = 0.0;
@@ -9404,7 +9410,7 @@ int perturb_derivs(double tau,
 
             // dy[idx] = -qk_div_epsilon*y[idx+1]+metric_continuity*dlnf0_dlnq/3.+  pv->Collision_l[n_ncdm][0];
             // dy[idx] = -qk_div_epsilon*y[idx+1]+metric_continuity*dlnf0_dlnq/3.+  Collision[0];
-            dy[idx] = -qk_div_epsilon*y[idx+1]+metric_continuity*dlnf0_dlnq/3.;
+            dy[idx] = -qk_div_epsilon*y[idx+1]+metric_continuity*dlnf0_dlnq/3.+ pvecback[pba->index_bg_H]*y[idx]*dlnf0_dz+ pv->Collision_l[n_ncdm][0];
             // printf("n_ncdm %d -qk_div_epsilon*y[idx+1] %e metric_continuity*dlnf0_dlnq/3 %e Collision_l[0] %e dlnf0_dlnq %e\n",n_ncdm,-qk_div_epsilon*y[idx+1],metric_continuity*dlnf0_dlnq/3,Collision[0],dlnf0_dlnq);
             /** - -----> ncdm velocity for given momentum bin */
 
@@ -9413,8 +9419,10 @@ int perturb_derivs(double tau,
 
               if(fabs(-qk_div_epsilon*y[idx+1])>1e10)printf("n_ncdm %d index_q %d a %e 1 %e 2 %e 3 %e dlnf0_dz %e \n", n_ncdm,index_q,a, -qk_div_epsilon*y[idx+1],metric_continuity*dlnf0_dlnq/3.,pv->Collision_l[n_ncdm][0],dlnf0_dz);
               //VP: Uncomment to print the collision term and the time derivative; their sum should be 0.
-              if(ppt->perturbations_verbose>10)printf("n_ncdm %d index_q %d a %e pvecback[pba->index_bg_H]*(1+y[idx])*dlnf0_dz %e pv->Collision_l[n_ncdm][0] %e\n",n_ncdm,index_q,a,pvecback[pba->index_bg_H]*(1+y[idx])*dlnf0_dz,pv->Collision_l[n_ncdm][0]);
-
+              if(ppt->perturbations_verbose>10){
+                // printf("k %e n_ncdm %d index_q z %e dy[idx+1] %e -qk_div_epsilon*y[idx+1] %e metric_continuity*dlnf0_dlnq/3 %e Collision_l[0] %e dlnf0_dz %e\n",k,n_ncdm,index_q,1/a-1,dy[idx+1],-qk_div_epsilon*y[idx+1],metric_continuity*dlnf0_dlnq/3, pv->Collision_l[n_ncdm][0],pvecback[pba->index_bg_H]*(y[idx])*dlnf0_dz);
+                // printf("k %e n_ncdm %d index_q %d z %e pvecback[pba->index_bg_H]*(1+y[idx])*dlnf0_dz %e pv->Collision_l[n_ncdm][0] %e\n",k,n_ncdm,index_q,1/a-1,pvecback[pba->index_bg_H]*(y[idx])*dlnf0_dz,pv->Collision_l[n_ncdm][0]);
+              }
 
             /** - -----> ncdm shear for given momentum bin */
 
@@ -10452,7 +10460,7 @@ int evaluate_collision_terms_nuphi( struct background * pba,
     epsilon_min = m_star*pba->M_phi/2/pba->m_ncdm_in_eV[n_ncdm_nu]/pba->m_ncdm_in_eV[n_ncdm_nu]
               *(epsilon_nu*sqrt(1+4*pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]/m_star/m_star)-q_nu);
     epsilon_max = m_star*pba->M_phi/2/pba->m_ncdm_in_eV[n_ncdm_nu]/pba->m_ncdm_in_eV[n_ncdm_nu]
-              *(epsilon_nu*sqrt(1+4*pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]/m_star/m_star));
+              *(epsilon_nu*sqrt(1+4*pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]/m_star/m_star)+q_nu);
 
 
     /// a bunch of prints for debugging
@@ -10575,6 +10583,8 @@ int evaluate_collision_terms_nuphi( struct background * pba,
         w = epsilon_nu * h *log(10);//deps=eps*dlogeps*log10
       else
         w =  h ;
+      if(index_q_loop == 0 || index_q_loop == max_steps-1) w*=0.5;
+
       class_call(background_ncdm_distribution_at_eps(
                                        pba,
                                        1/a-1,

@@ -906,6 +906,7 @@ int background_free_input(
     free(pba->deg_ncdm);
     free(pba->Omega0_ncdm);
     free(pba->m_ncdm_in_eV);
+    free(pba->z_nrel);
     free(pba->factor_ncdm);
     if(pba->got_files!=NULL)
       free(pba->got_files);
@@ -1389,7 +1390,6 @@ int interpolate_T_and_mu_at_z(struct background *pba,int n_ncdm, double z,double
   //First: check if spline interpolation is possible
   //If not: extrapolate using analytical formulae
  int last_index;
- double z_nrel_maj = -1,z_nrel_ncdm = -1; //dummy value for condition
  int start_indx=20;
 
   if (z >= pba->z_maj[pba->len_maj] && z <= pba->z_maj[start_indx]){
@@ -1471,10 +1471,10 @@ int interpolate_T_and_mu_at_z(struct background *pba,int n_ncdm, double z,double
         // *mu_ncdm = (pba->Mu_maj[pba->len_maj]-pba->m_ncdm_in_eV[n_ncdm])*(1+z)/(1+pba->z_maj[pba->len_maj]);
         *mu_ncdm = (pba->Mu_maj[pba->len_maj])*(1+z)/(1+pba->z_maj[pba->len_maj]);
         if(*T_ncdm < 3./20*pba->m_ncdm_in_eV[n_ncdm]){
-          if(z_nrel_maj < 0)z_nrel_maj = z;
+          if(pba->z_nrel[n_ncdm] <= 0)pba->z_nrel[n_ncdm] = z;
           //check that we were correct.
-          // *mu_ncdm = (pba->Mu_maj[pba->len_maj])*(1+z_nrel_maj)/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+z_nrel_maj),2);//if we include the mass leads to big discontinuity.//we decided that at late times we don't care about mu because rho is so small.
-          *T_ncdm = pba->T_maj[pba->len_maj]*(1+z_nrel_maj)/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+z_nrel_maj),2);
+          // *mu_ncdm = (pba->Mu_maj[pba->len_maj])*(1+z_nrel[n_ncdm])/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+z_nrel[n_ncdm]),2);//if we include the mass leads to big discontinuity.//we decided that at late times we don't care about mu because rho is so small.
+          *T_ncdm = pba->T_maj[pba->len_maj]*(1+pba->z_nrel[n_ncdm])/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+pba->z_nrel[n_ncdm]),2);
         }
 
       // printf("z %e \n",z,*T_ncdm/pba->m_ncdm_in_eV[n_ncdm]);
@@ -1485,13 +1485,15 @@ int interpolate_T_and_mu_at_z(struct background *pba,int n_ncdm, double z,double
       *T_ncdm = pba->T_nu[pba->len_maj]*(1+z)/(1+pba->z_maj[pba->len_maj]);
       *mu_ncdm = (pba->Mu_nu[pba->len_maj])*(1+z)/(1+pba->z_maj[pba->len_maj]);
         if(*T_ncdm < 3./20*pba->m_ncdm_in_eV[n_ncdm]){
-          if(z_nrel_ncdm < 0)z_nrel_ncdm = z;
+          if(pba->z_nrel[n_ncdm] < 0)pba->z_nrel[n_ncdm] = z;
           //check that we were correct.
-          *mu_ncdm = (pba->Mu_nu[pba->len_maj])*(1+z_nrel_ncdm)/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+z_nrel_ncdm),2);//if we include the mass leads to big discontinuity; is that ok?
-          // *mu_ncdm = (pba->Mu_nu[pba->len_maj]-pba->m_ncdm_in_eV[n_ncdm])*(1+z_nrel_ncdm)/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+z_nrel_ncdm),2);
-          *T_ncdm = pba->T_nu[pba->len_maj]*(1+z_nrel_ncdm)/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+z_nrel_ncdm),2);
+          *mu_ncdm = (pba->Mu_nu[pba->len_maj])*(1+pba->z_nrel[n_ncdm])/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+pba->z_nrel[n_ncdm]),2);//if we include the mass leads to big discontinuity; is that ok?
+          // *mu_ncdm = (pba->Mu_nu[pba->len_maj]-pba->m_ncdm_in_eV[n_ncdm])*(1+pba->z_nrel[n_ncdm])/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+pba->z_nrel[n_ncdm]),2);
+          *T_ncdm = pba->T_nu[pba->len_maj]*(1+pba->z_nrel[n_ncdm])/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+pba->z_nrel[n_ncdm]),2);
         }
     }
+
+    // printf("pba->z_nrel[n_ncdm = %d] %e\n",n_ncdm,pba->z_nrel[n_ncdm]);
   }
 
   return _SUCCESS_;
@@ -1547,7 +1549,7 @@ int get_q_max(struct background *pba, int n_ncdm, double a, double M,double * qm
     // *qmax = pow(3*3*M*M-(M*M),0.5)*a;
     *qmax = 20*T_ncdm*a; //VP: need to look into this
   }
- // *qmax = 20*T_ncdm*a;
+ *qmax = 20*T_ncdm*a;
   return _SUCCESS_;
 }
 
@@ -1599,6 +1601,7 @@ int background_ncdm_init(
   class_alloc(pba->dlnf0_dlnq_ncdm, sizeof(double*)*pba->N_ncdm,pba->error_message);
   class_alloc(pba->f_ncdm_bg, sizeof(double*)*pba->N_ncdm,pba->error_message);
   class_alloc(pba->f_ncdm, sizeof(double*)*pba->N_ncdm,pba->error_message);
+  class_alloc(pba->z_nrel, sizeof(double*)*pba->N_ncdm,pba->error_message);
 
   /* Allocate pointers: */
   class_alloc(pba->q_size_ncdm,sizeof(int)*pba->N_ncdm,pba->error_message);
@@ -1895,7 +1898,7 @@ int background_ncdm_init(
         /3./pow(_h_P_/2./_PI_,3)/pow(_c_,7)*_Mpc_over_m_*_Mpc_over_m_; //in this case, units are eV. we convert to Mpc.
     }
 
-
+    pba->z_nrel[k] = -1;//initialization; will be attributed later.
     /* If allocated, deallocate interpolation table:  */
     if ((pba->got_files!=NULL)&&(pba->got_files[k]==_TRUE_)){
       free(pbadist.q);

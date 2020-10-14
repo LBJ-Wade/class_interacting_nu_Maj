@@ -139,6 +139,7 @@ struct perturbs
   short has_metricpotential_transfers;/**< do we need to output individual transfer functions for scalar metric perturbations? */
   short has_Nbody_gauge_transfers;    /**< should we convert density and velocity transfer functions to Nbody gauge? */
 
+
   short has_nl_corrections_based_on_delta_m;  /**< do we want to compute non-linear corrections with an algorithm relying on delta_m (like halofit)? */
 
   short has_nc_density;  /**< in dCl, do we want density terms ? */
@@ -434,6 +435,7 @@ struct perturbs
 
   ErrorMsg error_message; /**< zone for writing error messages */
 
+  short include_collision_term;    /**< VP: should we include the collision term for majoron-Neutrinos collisions? */
   short use_majoron_security;/**< VP:If set to yes, the majoron is ignored when z drops below the last z value in the majoron table.*/
   int integral_collision_term_max_steps;/**< VP:number of steps to perform integral involved in the collision term between neutrinos and majoron.*/
 

@@ -342,6 +342,7 @@ struct background
   int * q_size_ncdm_bg; /**< Size of the q_ncdm_bg arrays */
   int * q_size_ncdm;    /**< Size of the q_ncdm arrays */
   double * factor_ncdm; /**< List of normalization factors for calculating energy density etc.*/
+  double * z_nrel; /**< List of normalization factors for calculating energy density etc.*/
 
   // SJW
   double * z_maj; /**/
