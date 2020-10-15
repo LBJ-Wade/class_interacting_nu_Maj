@@ -1485,11 +1485,12 @@ int interpolate_T_and_mu_at_z(struct background *pba,int n_ncdm, double z,double
       *T_ncdm = pba->T_nu[pba->len_maj]*(1+z)/(1+pba->z_maj[pba->len_maj]);
       *mu_ncdm = (pba->Mu_nu[pba->len_maj])*(1+z)/(1+pba->z_maj[pba->len_maj]);
         if(*T_ncdm < 3./20*pba->m_ncdm_in_eV[n_ncdm]){
-          if(pba->z_nrel[n_ncdm] < 0)pba->z_nrel[n_ncdm] = z;
+          if(pba->z_nrel[n_ncdm] <= 0)pba->z_nrel[n_ncdm] = z;
           //check that we were correct.
-          *mu_ncdm = (pba->Mu_nu[pba->len_maj])*(1+pba->z_nrel[n_ncdm])/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+pba->z_nrel[n_ncdm]),2);//if we include the mass leads to big discontinuity; is that ok?
+          // *mu_ncdm = (pba->Mu_nu[pba->len_maj])*(1+pba->z_nrel[n_ncdm])/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+pba->z_nrel[n_ncdm]),2);//if we include the mass leads to big discontinuity; is that ok?
           // *mu_ncdm = (pba->Mu_nu[pba->len_maj]-pba->m_ncdm_in_eV[n_ncdm])*(1+pba->z_nrel[n_ncdm])/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+pba->z_nrel[n_ncdm]),2);
-          *T_ncdm = pba->T_nu[pba->len_maj]*(1+pba->z_nrel[n_ncdm])/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+pba->z_nrel[n_ncdm]),2);
+          // *T_ncdm = pba->T_nu[pba->len_maj]*(1+pba->z_nrel[n_ncdm])/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+pba->z_nrel[n_ncdm]),2);
+          //VP: HERE NEED TO UNDERSTAND WHY THE CODE BREAKS IF T AND MU EXTRAPOLATION CHANGES.
         }
     }
 

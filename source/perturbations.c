@@ -9334,8 +9334,8 @@ int perturb_derivs(double tau,
             // if(n_ncdm ==2){
 
             q = pba->q_ncdm[n_ncdm][index_q]*qmax;
-            // dlnf0_dlnq=0;
-            // dlnf0_dz=0;
+            dlnf0_dlnq=0;
+            dlnf0_dz=0;
             if(ppt->use_majoron_security == _TRUE_ && 1./a-1. <= pba->z_maj[pba->len_maj] && pba->ncdm_background_distribution[n_ncdm] == _majoron_ )dlnf0_dlnq =0;
             else if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
               // if (1./a-1. >= 1.05*pba->z_maj[pba->len_maj] && 1./a-1. <= 0.95*pba->z_maj[0]){
@@ -9417,7 +9417,7 @@ int perturb_derivs(double tau,
             dy[idx+1] = qk_div_epsilon/3.0*(y[idx] - 2*s_l[2]*y[idx+2])
               -epsilon*metric_euler/(3*q*k)*dlnf0_dlnq+ pvecback[pba->index_bg_H]*y[idx+1]*dlnf0_dz+ pv->Collision_l[n_ncdm][1];
 
-              if(fabs(-qk_div_epsilon*y[idx+1])>1e10)printf("n_ncdm %d index_q %d a %e 1 %e 2 %e 3 %e dlnf0_dz %e \n", n_ncdm,index_q,a, -qk_div_epsilon*y[idx+1],metric_continuity*dlnf0_dlnq/3.,pv->Collision_l[n_ncdm][0],dlnf0_dz);
+              if(fabs(-qk_div_epsilon*y[idx+1])>1e10)printf("n_ncdm %d index_q %d a %e 1 %e 2 %e 3 %e dlnf0_dz %e pba->z_nrel[n_ncdm] %e \n", n_ncdm,index_q,a, -qk_div_epsilon*y[idx+1],metric_continuity*dlnf0_dlnq/3.,pv->Collision_l[n_ncdm][0],dlnf0_dz,pba->z_nrel[n_ncdm]);
               //VP: Uncomment to print the collision term and the time derivative; their sum should be 0.
               if(ppt->perturbations_verbose>10){
                 // printf("k %e n_ncdm %d index_q z %e dy[idx+1] %e -qk_div_epsilon*y[idx+1] %e metric_continuity*dlnf0_dlnq/3 %e Collision_l[0] %e dlnf0_dz %e\n",k,n_ncdm,index_q,1/a-1,dy[idx+1],-qk_div_epsilon*y[idx+1],metric_continuity*dlnf0_dlnq/3, pv->Collision_l[n_ncdm][0],pvecback[pba->index_bg_H]*(y[idx])*dlnf0_dz);
