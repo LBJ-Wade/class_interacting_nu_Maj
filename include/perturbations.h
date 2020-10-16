@@ -436,6 +436,7 @@ struct perturbs
   ErrorMsg error_message; /**< zone for writing error messages */
 
   short include_collision_term;    /**< VP: should we include the collision term for majoron-Neutrinos collisions? */
+  short use_approximate_collision_term;    /**< VP: should we use the approximate collision term for majoron-Neutrinos collisions? */
   short use_majoron_security;/**< VP:If set to yes, the majoron is ignored when z drops below the last z value in the majoron table.*/
   int integral_collision_term_max_steps;/**< VP:number of steps to perform integral involved in the collision term between neutrinos and majoron.*/
 
@@ -941,6 +942,16 @@ int evaluate_collision_terms_nuphi( struct background * pba,
                                  int index_lq_fix,
                                  double * Collision_l);
 
+int evaluate_collision_terms_approximate_nuphi( struct background * pba,
+                               struct perturbs * ppt,
+                               struct perturb_vector * pv,
+                               double a,
+                               double * psi_table,
+                               int n_ncdm,
+                               int index_q_fix, //momentum bin
+                               int index_l_fix, //multipole
+                               int index_lq_fix, //this is the true index in the psi_table
+                               double * Collision_l);
 
 int compute_dfdlnq_ncdm(  struct precision *ppr,
                          struct background *pba,
