@@ -9315,6 +9315,9 @@ int perturb_derivs(double tau,
             class_call(get_q_max(pba,n_ncdm,a,M,&qmax),
             pba->error_message,
             pba->error_message);
+            class_call(interpolate_background_ncdm_distribution(pba,n_ncdm,pba->q_ncdm[n_ncdm],pba->q_size_ncdm[n_ncdm],1./a-1,pba->f_ncdm[n_ncdm]),
+            pba->error_message,
+            pba->error_message);
             // qmax=pba->ncdm_qmax[n_ncdm];
 
           }else{
@@ -9377,11 +9380,15 @@ int perturb_derivs(double tau,
                 // if((l == 0 || l == 2) && k ==1)
                 // if(k==1)
                 if(ppt->use_approximate_collision_term == _TRUE_){
+                  // qmax_ncdm[n]=pba->ncdm_qmax[n_ncdm];
+
                     evaluate_collision_terms_approximate_nuphi(pba,
                                                     ppt,
                                                     pv,
                                                     a,
                                                     y,
+                                                    pba->f_ncdm[n_ncdm],
+                                                    qmax,
                                                     n_ncdm,
                                                     index_q,
                                                     l,
@@ -9424,7 +9431,7 @@ int perturb_derivs(double tau,
             // dy[idx] = -qk_div_epsilon*y[idx+1]+metric_continuity*dlnf0_dlnq/3.+  pv->Collision_l[n_ncdm][0];
             // dy[idx] = -qk_div_epsilon*y[idx+1]+metric_continuity*dlnf0_dlnq/3.+  Collision[0];
             dy[idx] = -qk_div_epsilon*y[idx+1]+metric_continuity*dlnf0_dlnq/3.+ pvecback[pba->index_bg_H]*y[idx]*dlnf0_dz+ pv->Collision_l[n_ncdm][0];
-            // printf("n_ncdm %d -qk_div_epsilon*y[idx+1] %e metric_continuity*dlnf0_dlnq/3 %e Collision_l[0] %e dlnf0_dlnq %e\n",n_ncdm,-qk_div_epsilon*y[idx+1],metric_continuity*dlnf0_dlnq/3,pv->Collision_l[n_ncdm][0],dlnf0_dlnq);
+            // printf("a %e n_ncdm %d -qk_div_epsilon*y[idx+1] %e metric_continuity*dlnf0_dlnq/3 %e Collision_l[0] %e dlnf0_dlnq %e\n",a, n_ncdm,-qk_div_epsilon*y[idx+1],metric_continuity*dlnf0_dlnq/3,pv->Collision_l[n_ncdm][0],dlnf0_dlnq);
             /** - -----> ncdm velocity for given momentum bin */
 
             dy[idx+1] = qk_div_epsilon/3.0*(y[idx] - 2*s_l[2]*y[idx+2])
@@ -10689,6 +10696,8 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
                                 struct perturb_vector * pv,
                                 double a,
                                 double * psi_table,
+                                double * fncdm,
+                                double qmax_ncdm,
                                 int n_ncdm,
                                 int index_q_fix, //momentum bin
                                 int index_l_fix, //multipole
@@ -10698,7 +10707,7 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
 
   double q,q_phi,q_nu,epsilon_phi,epsilon_nu,depsilon,epsilon,fbarphi_ephi,fbarnu_enu,fbarnu_ephienu,psi_phi_ephi,psi_nu_enu,psi_nu_ephienu,m_star,w,fbar;
   int index_q_phi,index_q_nu, idx_nu,idx_phi, index_q_loop,n_ncdm_nu;
-  double qmax_ncdm;
+  // double qmax_ncdm;
   double fbar_phi;
   double h;
   double * psi_table_nu_l;
@@ -10713,13 +10722,7 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
  double T_ncdm,mu_ncdm;
 
 
-  class_call(get_q_max(pba,n_ncdm,a,pba->m_ncdm_in_eV[n_ncdm],&qmax_ncdm),
-  pba->error_message,
-  pba->error_message);
-  // qmax_ncdm[n]=pba->ncdm_qmax[n_ncdm];
-  class_call(interpolate_background_ncdm_distribution(pba,n_ncdm,pba->q_ncdm[n_ncdm],pba->q_size_ncdm[n_ncdm],1./a-1,pba->f_ncdm[n_ncdm]),
-  pba->error_message,
-  pba->error_message);
+
 
 
 
@@ -10732,7 +10735,7 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
     sign = -1;
     index_q_phi = index_q_fix;
     q_phi = pba->q_ncdm[n_ncdm][index_q_phi]*qmax_ncdm;
-    fbar_phi = pba->f_ncdm[n_ncdm][index_q_fix];
+    fbar_phi =fncdm[index_q_fix];
 
     epsilon_phi =sqrt(q_phi*q_phi+a*a*pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]);
     epsilon_min = m_star/2/pba->M_phi*(epsilon_phi*sqrt(1+4*pba->m_ncdm_in_eV[n_ncdm_nu]*pba->m_ncdm_in_eV[n_ncdm_nu]/m_star/m_star)-q_phi);
@@ -10798,7 +10801,8 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
     // pba->error_message);
   }
 
-/* loop over the collision term: to be included
+/* loop over the collision term: to be included and modified to remove the statistical factors
+
   //we alloc table to interpolate the perturbations at the right energy
   idx_nu = pv->index_pt_psi0_ncdm1;//assume that neutrinos are located first in the table
   idx_phi = pv->index_pt_psi0_ncdm1+(pv->q_size_ncdm[n_ncdm_nu])*(pv->l_max_ncdm[n_ncdm_nu]+1);//the majoron entries are located after all the entries related to the Neutrinos
@@ -10967,7 +10971,7 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
 
   q = pba->q_ncdm[n_ncdm][index_q_fix]*qmax_ncdm; //conversion to eV
   epsilon = sqrt(q*q+a*a*pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]); //in eV
-  fbar = pba->f_ncdm[n_ncdm][index_q_fix];
+  fbar = fncdm[index_q_fix];
 
   // printf("*Collision_l %e before \n", *Collision_l);
   if(fbar!=0 && fbar!= 1e-40)*Collision_l *= sqrt(1-(4*pba->m_ncdm_in_eV[n_ncdm_nu]*pba->m_ncdm_in_eV[n_ncdm_nu])/(pba->M_phi*pba->M_phi))*a*a*pba->M_phi*pba->M_phi*pba->Gamma_phi[n_ncdm]/fbar/m_star/epsilon/q;//eV
@@ -10976,10 +10980,10 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
 
   *Collision_l *= sign*_eV_/_h_P_/2./_PI_/_c_*_Mpc_over_m_;// convert from eV to Mpc^-1 (CLASS units)
 
-  free(psi_table_nu_l);
-  free(dd_psi_table_nu_l);
-  free(psi_table_phi_l);
-  free(dd_psi_table_phi_l);
+  // free(psi_table_nu_l);
+  // free(dd_psi_table_nu_l);
+  // free(psi_table_phi_l);
+  // free(dd_psi_table_phi_l);
 
   // printf("*Collision_l %e after _eV_/_h_P_/2./_PI_/_c_*_Mpc_over_m_ %e \n", *Collision_l,_eV_/_h_P_/2./_PI_/_c_*_Mpc_over_m_);
   // *Collision_l = 0;

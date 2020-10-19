@@ -947,6 +947,8 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
                                struct perturb_vector * pv,
                                double a,
                                double * psi_table,
+                               double * fncdm,
+                               double qmax_ncdm,
                                int n_ncdm,
                                int index_q_fix, //momentum bin
                                int index_l_fix, //multipole
