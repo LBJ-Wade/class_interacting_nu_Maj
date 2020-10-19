@@ -437,6 +437,7 @@ struct perturbs
 
   short include_collision_term;    /**< VP: should we include the collision term for majoron-Neutrinos collisions? */
   short use_approximate_collision_term;    /**< VP: should we use the approximate collision term for majoron-Neutrinos collisions? */
+  short include_integral_approximate_collision_term;    /**< VP: should we use include the integral in the approximate collision term for majoron-Neutrinos collisions? */
   short use_majoron_security;/**< VP:If set to yes, the majoron is ignored when z drops below the last z value in the majoron table.*/
   int integral_collision_term_max_steps;/**< VP:number of steps to perform integral involved in the collision term between neutrinos and majoron.*/
 

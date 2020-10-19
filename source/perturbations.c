@@ -10717,9 +10717,10 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
   double epsilon_min, epsilon_max,logepsilon;
   double max_steps = ppt->integral_collision_term_max_steps;
   int sign;
-  int integral_is_log = _FALSE_;
+  int integral_is_log = _TRUE_;
   *Collision_l = 0;
- double T_ncdm,mu_ncdm;
+  double T_ncdm,mu_ncdm;
+  double Integral = 0;
 
 
 
@@ -10774,6 +10775,8 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
     sign = +1;
     index_q_nu = index_q_fix;
     q_nu = pba->q_ncdm[n_ncdm_nu][index_q_nu]*qmax_ncdm;
+    fbarnu_enu = fncdm[index_q_fix];
+
     epsilon_nu =sqrt(q_nu*q_nu+a*a*pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]);
     epsilon_min = m_star*pba->M_phi/2/pba->m_ncdm_in_eV[n_ncdm_nu]/pba->m_ncdm_in_eV[n_ncdm_nu]
               *(epsilon_nu*sqrt(1+4*pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]/m_star/m_star)-q_nu);
@@ -10801,173 +10804,177 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
     // pba->error_message);
   }
 
-/* loop over the collision term: to be included and modified to remove the statistical factors
+ if(ppt->include_integral_approximate_collision_term == _TRUE_){
 
-  //we alloc table to interpolate the perturbations at the right energy
-  idx_nu = pv->index_pt_psi0_ncdm1;//assume that neutrinos are located first in the table
-  idx_phi = pv->index_pt_psi0_ncdm1+(pv->q_size_ncdm[n_ncdm_nu])*(pv->l_max_ncdm[n_ncdm_nu]+1);//the majoron entries are located after all the entries related to the Neutrinos
-  class_alloc(psi_table_nu_l,sizeof(double)*pv->q_size_ncdm[n_ncdm_nu],pba->error_message);
-  class_alloc(dd_psi_table_nu_l,sizeof(double)*pv->q_size_ncdm[n_ncdm_nu],pba->error_message);
-  class_alloc(psi_table_phi_l,sizeof(double)*pv->q_size_ncdm[pba->entry_is_M_phi],pba->error_message);
-  class_alloc(dd_psi_table_phi_l,sizeof(double)*pv->q_size_ncdm[pba->entry_is_M_phi],pba->error_message);
+   /* loop over the collision term: include by changing the switch in your ini file */
 
 
-  for (index_q_loop=0; index_q_loop < pv->q_size_ncdm[n_ncdm_nu]; index_q_loop ++) {
-    //first loop: we prepare a table of psi_nu_l(E) for interpolation
-    //this loop has been checked
-    psi_table_nu_l[index_q_loop] = psi_table[idx_nu+index_l_fix];
-    idx_nu += pv->l_max_ncdm[n_ncdm_nu]+1;
-    // printf("index_l_fix %d psi_table_nu_l[index_q_loop] %e\n",index_l_fix, psi_table_nu_l[index_q_loop]);
 
-  }
-  for (index_q_loop=0; index_q_loop < pv->q_size_ncdm[pba->entry_is_M_phi]; index_q_loop ++) {
-    //second loop: we prepare a table of psi_phi_l(E) for interpolation
-    //this loop has been checked
-    psi_table_phi_l[index_q_loop] = psi_table[idx_phi+index_l_fix];
-    idx_phi += pv->l_max_ncdm[pba->entry_is_M_phi]+1;
-    // printf("index_l_fix %d psi_table_phi_l[index_q_loop] %e\n",index_l_fix, psi_table_phi_l[index_q_loop]);
-  }
+   //we alloc table to interpolate the perturbations at the right energy
+   idx_nu = pv->index_pt_psi0_ncdm1;//assume that neutrinos are located first in the table
+   class_alloc(psi_table_nu_l,sizeof(double)*pv->q_size_ncdm[n_ncdm_nu],pba->error_message);
+   class_alloc(dd_psi_table_nu_l,sizeof(double)*pv->q_size_ncdm[n_ncdm_nu],pba->error_message);
 
-  //getting ready to interpolate
-  class_call(array_spline_table_lines(pba->q_ncdm[n_ncdm_nu],
-                                      pv->q_size_ncdm[n_ncdm_nu],
-                                      psi_table_nu_l,
-                                      1,
-                                      dd_psi_table_nu_l,
-                                      _SPLINE_EST_DERIV_,
-                                      pba->error_message),
-   pba->error_message,
-   pba->error_message);
-  class_call(array_spline_table_lines(pba->q_ncdm[pba->entry_is_M_phi],
-                                      pv->q_size_ncdm[pba->entry_is_M_phi],
-                                      psi_table_phi_l,
-                                      1,
-                                      dd_psi_table_phi_l,
-                                      _SPLINE_EST_DERIV_,
-                                      pba->error_message),
-   pba->error_message,
-   pba->error_message);
+   class_alloc(psi_table_phi_l,sizeof(double)*pv->q_size_ncdm[pba->entry_is_M_phi],pba->error_message);
+   class_alloc(dd_psi_table_phi_l,sizeof(double)*pv->q_size_ncdm[pba->entry_is_M_phi],pba->error_message);
 
 
-   //before loop, extract the relevant f and psi that are evaluated at fix energies:
-   if(n_ncdm == pba->entry_is_M_phi){
-     //the majoron's energy is fixed
-     class_call(background_ncdm_distribution_at_eps(
-                                      pba,
-                                      1/a-1,
-                                      n_ncdm,
-                                      epsilon_phi,
-                                      &fbarphi_ephi),
-                                      pba->error_message,
-                                      pba->error_message
-                                    );
-     interpolate_psi_table_at_eps(pba,a,epsilon_phi,psi_table_phi_l,dd_psi_table_phi_l,n_ncdm,&psi_phi_ephi);//nb: we interpolate but in fact we could use one of the table entry "index_lq_fix". checked to be identical.
-     // printf("epsilon_phi %e fbarphi_ephi %e psi_table_phi_l %e true psi %e\n",epsilon_phi,fbarphi_ephi, psi_phi_ephi,psi_table[index_lq_fix],psi_table[index_lq_fix+pv->l_max_ncdm[pba->entry_is_M_phi]+1]);
-
-     // printf("next epsilon_phi %e psi_table_phi_l %e true psi %e\n",epsilon_phi, psi_phi_ephi,psi_table[index_lq_fix+pv->l_max_ncdm[pba->entry_is_M_phi]+1]);
-   }else{
-     //the neutrino's energy is fixed
-     class_call(background_ncdm_distribution_at_eps(
-                                      pba,
-                                      1/a-1,
-                                      n_ncdm,
-                                      epsilon_nu,
-                                      &fbarnu_enu),
-                                      pba->error_message,
-                                      pba->error_message
-                                    );
-     interpolate_psi_table_at_eps(pba,a,epsilon_nu,psi_table_nu_l,dd_psi_table_nu_l,n_ncdm,&psi_nu_enu);//nb: we interpolate but in fact we could use one of the table entry "index_lq_fix". checked to be identical.
-     // printf("epsilon_nu %e fbarnu_enu %e psi_table_nu_l %e true psi %e\n",epsilon_nu,fbarnu_enu, psi_nu_enu,psi_table[index_lq_fix]);
+   for (index_q_loop=0; index_q_loop < pv->q_size_ncdm[n_ncdm_nu]; index_q_loop ++) {
+     //first loop: we prepare a table of psi_nu_l(E) for interpolation
+     //this loop has been checked
+     psi_table_nu_l[index_q_loop] = psi_table[idx_nu+index_l_fix];
+     idx_nu += pv->l_max_ncdm[n_ncdm_nu]+1;
+     // printf("index_l_fix %d psi_table_nu_l[index_q_loop] %e\n",index_l_fix, psi_table_nu_l[index_q_loop]);
 
    }
 
-   if(integral_is_log == _TRUE_)
-     h = (log10(epsilon_max)-log10(epsilon_min))/ (max_steps-1);//define the size of step (in log)
-   else
-     h = ((epsilon_max)-(epsilon_min))/ (max_steps-1);//define the size of step
 
 
-  for (index_q_loop=0; index_q_loop < max_steps; index_q_loop ++) {
-    //now loop: we calculate the complicated integral
+   //getting ready to interpolate
+   class_call(array_spline_table_lines(pba->q_ncdm[n_ncdm_nu],
+                                       pv->q_size_ncdm[n_ncdm_nu],
+                                       psi_table_nu_l,
+                                       1,
+                                       dd_psi_table_nu_l,
+                                       _SPLINE_EST_DERIV_,
+                                       pba->error_message),
+    pba->error_message,
+    pba->error_message);
+
+
+    //before loop, extract the relevant f and psi that are evaluated at fix energies:
+    if(n_ncdm != pba->entry_is_M_phi){
+      idx_phi = pv->index_pt_psi0_ncdm1+(pv->q_size_ncdm[n_ncdm_nu])*(pv->l_max_ncdm[n_ncdm_nu]+1);//the majoron entries are located after all the entries related to the Neutrinos
+
+      for (index_q_loop=0; index_q_loop < pv->q_size_ncdm[pba->entry_is_M_phi]; index_q_loop ++) {
+        //second loop: we prepare a table of psi_phi_l(E) for interpolation
+        //this loop has been checked
+        psi_table_phi_l[index_q_loop] = psi_table[idx_phi+index_l_fix];
+        idx_phi += pv->l_max_ncdm[pba->entry_is_M_phi]+1;
+        // printf("index_l_fix %d psi_table_phi_l[index_q_loop] %e\n",index_l_fix, psi_table_phi_l[index_q_loop]);
+      }
+
+      class_call(array_spline_table_lines(pba->q_ncdm[pba->entry_is_M_phi],
+                                          pv->q_size_ncdm[pba->entry_is_M_phi],
+                                          psi_table_phi_l,
+                                          1,
+                                          dd_psi_table_phi_l,
+                                          _SPLINE_EST_DERIV_,
+                                          pba->error_message),
+       pba->error_message,
+       pba->error_message);
+
+    }
+
     if(integral_is_log == _TRUE_)
-      logepsilon = h*index_q_loop+log10(epsilon_min);
+      h = (log10(epsilon_max)-log10(epsilon_min))/ (max_steps-1);//define the size of step (in log)
     else
-      epsilon = h*index_q_loop+(epsilon_min);
-
-    if(n_ncdm == pba->entry_is_M_phi){
-      //if we treat the majoron, we loop over "nu"
-      if(integral_is_log == _TRUE_)
-        epsilon_nu = pow(10,logepsilon);
-      else
-        epsilon_nu = epsilon;
-      if(integral_is_log == _TRUE_)
-        w = epsilon_nu * h *log(10);//deps=eps*dlogeps*log10
-      else
-        w =  h ;
-      if(index_q_loop == 0 || index_q_loop == max_steps-1) w*=0.5;
-
-      class_call(background_ncdm_distribution_at_eps(
-                                       pba,
-                                       1/a-1,
-                                       n_ncdm_nu,
-                                       epsilon_nu,
-                                       &fbarnu_enu),
-                 pba->error_message,
-                 pba->error_message);
-      interpolate_psi_table_at_eps(pba,a,epsilon_nu,psi_table_nu_l,dd_psi_table_nu_l,n_ncdm_nu,&psi_nu_enu);
-     }else{
-      //if we treat the neutrinos, we loop over "phi"
-      if(integral_is_log == _TRUE_)
-        epsilon_phi = pow(10,logepsilon);
-      else
-        epsilon_phi = epsilon;
-      if(integral_is_log == _TRUE_)
-        w = epsilon_phi * h *log(10);//deps=eps*dlog10eps*log(10)
-      else
-        w = h;
-      //get f at the relevant energies.
-      class_call(background_ncdm_distribution_at_eps(
-                                       pba,
-                                       1/a-1,
-                                       pba->entry_is_M_phi,
-                                       epsilon_phi,
-                                       &fbarphi_ephi),
-                 pba->error_message,
-                 pba->error_message);
-      interpolate_psi_table_at_eps(pba,a,epsilon_phi,psi_table_phi_l,dd_psi_table_phi_l,pba->entry_is_M_phi,&psi_phi_ephi);
-    }
-
-    depsilon = epsilon_phi-epsilon_nu;
-    fbarnu_ephienu = 0;
-    if(depsilon>0)class_call(background_ncdm_distribution_at_eps(
-                                     pba,
-                                     1/a-1,
-                                     n_ncdm_nu,
-                                     depsilon,
-                                     &fbarnu_ephienu),
-                             pba->error_message,
-                             pba->error_message);
-
-    //get psi at the relevant energies.
-
-    psi_nu_ephienu = 0;
-    if(depsilon>0)interpolate_psi_table_at_eps(pba,a,depsilon,psi_table_nu_l,dd_psi_table_nu_l,n_ncdm_nu,&psi_nu_ephienu);
+      h = ((epsilon_max)-(epsilon_min))/ (max_steps-1);//define the size of step
 
 
-    //compute integral
-      *Collision_l += w*(
-      +fbarphi_ephi*(1-fbarnu_enu-fbarnu_ephienu)*psi_phi_ephi
-      -fbarnu_enu*(fbarnu_ephienu+fbarphi_ephi)*psi_nu_enu
-      -fbarnu_ephienu*(fbarnu_enu+fbarphi_ephi)*psi_nu_ephienu);
-      if(index_l_fix==0 && ppt->perturbations_verbose > 11){
-        printf("A a %e b %e c %e\n",fbarphi_ephi,(1-fbarnu_enu-fbarnu_ephienu),psi_phi_ephi);
-        printf("B a %e b %e c %e\n",fbarnu_enu,(fbarnu_ephienu+fbarphi_ephi),psi_nu_enu);
-        printf("C a %e b %e c %e\n",fbarnu_ephienu,(fbarnu_enu+fbarphi_ephi),psi_nu_ephienu);
-        printf("n_ncdm %d index_l %d a %e Collision_l %e w %e epsilon_phi %e epsilon_nu %e depsilon %e A %e B %e C %e\n", n_ncdm,index_l_fix,a,*Collision_l,w,epsilon_phi,epsilon_nu,depsilon,fbarphi_ephi*(1-fbarnu_enu-fbarnu_ephienu)*psi_phi_ephi,-fbarnu_enu*(fbarnu_ephienu+fbarphi_ephi)*psi_nu_enu,-fbarnu_ephienu*(fbarnu_enu+fbarphi_ephi)*psi_nu_ephienu);
-    }
+   for (index_q_loop=0; index_q_loop < max_steps; index_q_loop ++) {
+     //now loop: we calculate the complicated integral
+     if(integral_is_log == _TRUE_)
+       logepsilon = h*index_q_loop+log10(epsilon_min);
+     else
+       epsilon = h*index_q_loop+(epsilon_min);
 
-  }
-  */
+     if(n_ncdm == pba->entry_is_M_phi){
+       //if we treat the majoron, we loop over "nu"
+       if(integral_is_log == _TRUE_)
+         epsilon_nu = pow(10,logepsilon);
+       else
+         epsilon_nu = epsilon;
+       if(integral_is_log == _TRUE_)
+         w = epsilon_nu * h *log(10);//deps=eps*dlogeps*log10
+       else
+         w =  h ;
+       if(index_q_loop == 0 || index_q_loop == max_steps-1) w*=0.5;
+
+       //get f and psi at the relevant energies.
+
+
+       class_call(background_ncdm_distribution_at_eps(
+                                        pba,
+                                        1/a-1,
+                                        n_ncdm_nu,
+                                        epsilon_nu,
+                                        &fbarnu_enu),
+                  pba->error_message,
+                  pba->error_message);
+       interpolate_psi_table_at_eps(pba,a,epsilon_nu,psi_table_nu_l,dd_psi_table_nu_l,n_ncdm_nu,&psi_nu_enu);
+
+
+       depsilon = epsilon_phi-epsilon_nu;
+       fbarnu_ephienu = 0;
+       if(depsilon>0)class_call(background_ncdm_distribution_at_eps(
+                                        pba,
+                                        1/a-1,
+                                        n_ncdm_nu,
+                                        depsilon,
+                                        &fbarnu_ephienu),
+                                pba->error_message,
+                                pba->error_message);
+
+
+       psi_nu_ephienu = 0;
+       if(depsilon>0)interpolate_psi_table_at_eps(pba,a,depsilon,psi_table_nu_l,dd_psi_table_nu_l,n_ncdm_nu,&psi_nu_ephienu);
+
+       //compute integral
+       Integral += -w*fbarnu_enu*(fbarnu_ephienu)*(psi_nu_enu+psi_nu_ephienu);
+
+       }else{
+       //if we treat the neutrinos, we loop over "phi"
+       if(integral_is_log == _TRUE_)
+         epsilon_phi = pow(10,logepsilon);
+       else
+         epsilon_phi = epsilon;
+       if(integral_is_log == _TRUE_)
+         w = epsilon_phi * h *log(10);//deps=eps*dlog10eps*log(10)
+       else
+         w = h;
+       //get f at the relevant energies.
+       class_call(background_ncdm_distribution_at_eps(
+                                        pba,
+                                        1/a-1,
+                                        pba->entry_is_M_phi,
+                                        epsilon_phi,
+                                        &fbarphi_ephi),
+                  pba->error_message,
+                  pba->error_message);
+       interpolate_psi_table_at_eps(pba,a,epsilon_phi,psi_table_phi_l,dd_psi_table_phi_l,pba->entry_is_M_phi,&psi_phi_ephi);
+
+       depsilon = epsilon_phi-epsilon_nu;
+       fbarnu_ephienu = 0;
+       if(depsilon>0)class_call(background_ncdm_distribution_at_eps(
+                                        pba,
+                                        1/a-1,
+                                        n_ncdm_nu,
+                                        depsilon,
+                                        &fbarnu_ephienu),
+                                pba->error_message,
+                                pba->error_message);
+
+
+       psi_nu_ephienu = 0;
+       if(depsilon>0)interpolate_psi_table_at_eps(pba,a,depsilon,psi_table_nu_l,dd_psi_table_nu_l,n_ncdm_nu,&psi_nu_ephienu);
+
+       Integral += w*(fbarphi_ephi*psi_phi_ephi-fbarnu_enu*fbarnu_ephienu*psi_nu_ephienu);
+
+
+     }
+   }
+   if(ppt->perturbations_verbose>10)printf("l %d q %d a %e n_ncdm %d *Collision_l %e Integral %e \n",index_l_fix,index_q_fix,a,n_ncdm,*Collision_l,Integral);
+   *Collision_l += Integral;
+
+
+     free(psi_table_nu_l);
+     free(dd_psi_table_nu_l);
+     free(psi_table_phi_l);
+     free(dd_psi_table_phi_l);
+
+ }
+
 
   q = pba->q_ncdm[n_ncdm][index_q_fix]*qmax_ncdm; //conversion to eV
   epsilon = sqrt(q*q+a*a*pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]); //in eV
@@ -10979,11 +10986,6 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
   // printf("*Collision_l %e interm \n", *Collision_l);
 
   *Collision_l *= sign*_eV_/_h_P_/2./_PI_/_c_*_Mpc_over_m_;// convert from eV to Mpc^-1 (CLASS units)
-
-  // free(psi_table_nu_l);
-  // free(dd_psi_table_nu_l);
-  // free(psi_table_phi_l);
-  // free(dd_psi_table_phi_l);
 
   // printf("*Collision_l %e after _eV_/_h_P_/2./_PI_/_c_*_Mpc_over_m_ %e \n", *Collision_l,_eV_/_h_P_/2./_PI_/_c_*_Mpc_over_m_);
   // *Collision_l = 0;
