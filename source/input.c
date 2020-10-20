@@ -1200,6 +1200,42 @@ int input_read_parameters(
     }else {
       ppt->include_collision_term = _FALSE_;
     }
+    class_call(parser_read_string(pfc,
+                                  "use_approximate_collision_term",
+                                  &string1,
+                                  &flag1,
+                                  errmsg),
+               errmsg,
+               errmsg);
+
+    if (flag1 == _TRUE_){
+      if((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL)){
+        ppt->use_approximate_collision_term = _TRUE_;
+      }
+      else {
+        ppt->use_approximate_collision_term = _FALSE_;
+      }
+    }else {
+      ppt->use_approximate_collision_term = _FALSE_;
+    }
+    class_call(parser_read_string(pfc,
+                                  "include_integral_approximate_collision_term",
+                                  &string1,
+                                  &flag1,
+                                  errmsg),
+               errmsg,
+               errmsg);
+
+    if (flag1 == _TRUE_){
+      if((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL)){
+        ppt->include_integral_approximate_collision_term = _TRUE_;
+      }
+      else {
+        ppt->include_integral_approximate_collision_term = _FALSE_;
+      }
+    }else {
+      ppt->include_integral_approximate_collision_term = _FALSE_;
+    }
 
 
 
