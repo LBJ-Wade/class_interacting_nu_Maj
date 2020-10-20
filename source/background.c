@@ -1357,34 +1357,7 @@ int background_ncdm_distribution(
   return _SUCCESS_;
 }
 
-int background_ncdm_distribution_at_eps(
-                                 struct background * pba,
-                                 double z,
-                                 int n_ncdm,
-                                 double eps,
-                                 double * f0
-                                 ) {
 
-   double T_ncdm,mu_ncdm,p,E;
-   //VP: here we define the background distribution
-   interpolate_T_and_mu_at_z(pba,n_ncdm,z,&T_ncdm,&mu_ncdm);
-   // printf("eps*(1+z)\n", eps*(1+z));
-   E = eps*(1+z);
-   if(pba->ncdm_background_distribution[n_ncdm]==_majoron_){
-     *f0=1.0/pow(2*_PI_,3)*(1./(exp((E-mu_ncdm)/T_ncdm)-1));//bose-einstein
-
-   }
-   else{
-     p = sqrt(E*E-pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]);
-     *f0=1.0/pow(2*_PI_,3)*(1./(exp((p-mu_ncdm)/T_ncdm)+1)); //frozen fermi-dirac distribution
-   }
-   // if(n_ncdm == 1)printf("z %e *f0 %e\n",z,*f0);
-   if(*f0 == 0 || isnan(*f0) || *f0 < 0 || *f0 < 1e-40) *f0 = 1e-40; //to avoid bug; eps/T_ncdm can become too big for the exponential when m>>T. we could probably improve that but it works.
-   // if(*f0 == 1e-40)printf("n_ncdm %d *f0 %e z %e eps %e mu_ncdm %e T_ncdm %e exp((eps-mu_ncdm)/T_ncdm) %e\n",n_ncdm,*f0,z,E,mu_ncdm,T_ncdm,exp((E-mu_ncdm)/T_ncdm));
-   // if(1+z<1.5 && n_ncdm == 0)printf("here (1+z) %e ncdm %d mu_ncdm %e Tnu %e q %e eps %e Mncm %e  exp((eps-mu_ncdm)/T_ncdm) %e f0 %e\n",1+z,n_ncdm,mu_ncdm,T_ncdm, q,eps,pba->m_ncdm_in_eV[n_ncdm],exp((eps-mu_ncdm)/T_ncdm),*f0);
-   return _SUCCESS_;
-
-}
 int interpolate_T_and_mu_at_z(struct background *pba,int n_ncdm, double z,double *T_ncdm, double *mu_ncdm){
   //VP:This function is used to interpolate and extrapolate T and mu
   //First: check if spline interpolation is possible

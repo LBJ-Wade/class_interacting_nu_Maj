@@ -515,6 +515,8 @@ struct perturb_vector
   double * dy;            /**< time-derivative of the same vector */
 
   double **Collision_l;  /**< VP:table of collision term in the interacting majoron/neutrino scenario*/
+  double ***psi_table;  /**< VP:table of psi term in the interacting majoron/neutrino scenario*/
+  double ***ddpsi_table;  /**< VP:table of ddpsi term in the interacting majoron/neutrino scenario*/
   int * used_in_sources; /**< boolean array specifying which
                             perturbations enter in the calculation of
                             source functions */
@@ -813,6 +815,7 @@ extern "C" {
                           );
 
   int perturb_vector_free(
+                          struct background * pba,
                           struct perturb_vector * pv
                           );
 
@@ -925,12 +928,24 @@ extern "C" {
 int interpolate_psi_table_at_eps(
                         struct background *pba,
                         double a,
-                        double eps,
+                        double q,
+                        double qmax,
                         double * psi_table,
                         double * dd_psi_table,
                         int n_ncdm,
                         double * psi_at_eps
                         ) ;
+                        int interpolate_linear_psi_table_at_eps(
+                                                struct background *pba,
+                                                struct perturb_vector * pv,
+                                                double a,
+                                                double q,
+                                                double qmax,
+                                                int l,
+                                                double * psi_table,
+                                                int n_ncdm,
+                                                double * psi_at_eps
+                                              );
 
 int evaluate_collision_terms_nuphi( struct background * pba,
                                  struct perturbs * ppt,
@@ -947,25 +962,38 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
                                struct perturbs * ppt,
                                struct perturb_vector * pv,
                                double a,
-                               double * psi_table,
+                               double * pvecback,
                                double * fncdm,
+                               double * psi_table,
                                double qmax_ncdm,
                                int n_ncdm,
                                int index_q_fix, //momentum bin
                                int index_l_fix, //multipole
                                int index_lq_fix, //this is the true index in the psi_table
                                double * Collision_l);
-
+int background_ncdm_distribution_at_eps(
+                                struct background * pba,
+                                double z,
+                                int n_ncdm,
+                                double T_nu,
+                                double mu_nu,
+                                double eps,
+                                double * f0
+                              );
 int compute_dfdlnq_ncdm(  struct precision *ppr,
                          struct background *pba,
                          int n_ncdm,
                          double z,
+                         double T_ncdm,
+                         double mu_ncdm,
                          double q,
                          double * dlnf0_dlnq_ncdm);
  int compute_dlnfdz_ncdm(  struct background *pba,
                            int n_ncdm,
                            double z,
                            double q,
+                           double T_ncdm,
+                           double mu_ncdm,
                            double dTdz,
                            double dmudz,
                            double * dlnfdz_ncdm);
