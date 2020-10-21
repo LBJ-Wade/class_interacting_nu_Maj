@@ -1484,13 +1484,16 @@ int interpolate_T_and_mu_at_z(struct background *pba,int n_ncdm, double z,double
       //assume relativistic:
       *T_ncdm = pba->T_nu[pba->len_maj]*(1+z)/(1+pba->z_maj[pba->len_maj]);
       *mu_ncdm = (pba->Mu_nu[pba->len_maj])*(1+z)/(1+pba->z_maj[pba->len_maj]);
-        if(*T_ncdm < 3./20*pba->m_ncdm_in_eV[n_ncdm]){
+        if(z < pba->z_maj[pba->len_maj]){
           if(pba->z_nrel[n_ncdm] <= 0)pba->z_nrel[n_ncdm] = z;
           //check that we were correct.
           // *mu_ncdm = (pba->Mu_nu[pba->len_maj])*(1+pba->z_nrel[n_ncdm])/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+pba->z_nrel[n_ncdm]),2);//if we include the mass leads to big discontinuity; is that ok?
-          // *mu_ncdm = (pba->Mu_nu[pba->len_maj]-pba->m_ncdm_in_eV[n_ncdm])*(1+pba->z_nrel[n_ncdm])/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+pba->z_nrel[n_ncdm]),2);
-          // *T_ncdm = pba->T_nu[pba->len_maj]*(1+pba->z_nrel[n_ncdm])/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+pba->z_nrel[n_ncdm]),2);
+          //*mu_ncdm = (pba->Mu_nu[pba->len_maj]-pba->m_ncdm_in_eV[n_ncdm])*(1+pba->z_nrel[n_ncdm])/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+pba->z_nrel[n_ncdm]),2);
+          //*T_ncdm = pba->T_nu[pba->len_maj]*(1+pba->z_nrel[n_ncdm])/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+pba->z_nrel[n_ncdm]),2);
+          //*T_ncdm = pba->T_nu[pba->len_maj] / ();
+          //*mu_ncdm = pba->Mu_nu[pba->len_maj];
           //VP: HERE NEED TO UNDERSTAND WHY THE CODE BREAKS IF T AND MU EXTRAPOLATION CHANGES.
+          // SJW HERE
         }
     }
 
@@ -1630,7 +1633,8 @@ int background_ncdm_init(
 
      test = background_MB_approx(pba, &lenIndx);
      pba->len_maj = lenIndx;
-
+     //printf("CHECKING.... \t %e \t %d \n", pba->z_maj[lenIndx], lenIndx);
+     
      //VP: once we know the size of the table, we can "realloc"; i.e. removes useless space in tables.
      pba->z_maj = realloc(pba->z_maj, sizeof(double*)*(pba->len_maj+1));
      pba->T_maj = realloc(pba->T_maj, sizeof(double*)*(pba->len_maj+1));
@@ -3297,6 +3301,7 @@ int background_MB_approx(
   double maxBndMaj, maxBndNu, ThreshJump;
   double zstart, zend, zhold, delT;
   bool lower_sve_indx=false, shrinkDT=false, stop_loop=false, linearMu=false, linearMuN=false, linearT=false;
+  bool no_ints=false;
   int numT=500000, sve_indx=100;
   *lenIndx=0;
 
@@ -3326,8 +3331,9 @@ int background_MB_approx(
   indx = 0;
 
   while (!stop_loop){
+    
     indx+=1;
-
+    
     if ((TcmbStore < ThreshJump)&&(!shrinkDT)){
     delT /= 10.;
     if (ThreshJump == mMaj){
@@ -3344,8 +3350,9 @@ int background_MB_approx(
     muNh = muNstore;
     tcur = TcmbStore;
     zhold = zstore;
-
-    worked = RK_Eval(pba, GammaPhi, zhold, tmajH, tnuH, muMh, muNh, mMaj, tcur, Mnu, k1);
+    if (!no_ints) {worked = RK_Eval(pba, GammaPhi, zhold, tmajH, tnuH, muMh, muNh, mMaj, tcur, Mnu, k1);}
+    else {worked = RK_Eval_NoInt(pba, GammaPhi, zhold, tmajH, tnuH, muMh, muNh, mMaj, tcur, Mnu, k1);}
+    
     if (linearMu) {k1[2] *= muMh;}
     if (linearMuN) {k1[3] *= muNh;}
     //if (linearT) {k1[0] *= tmajH;}
@@ -3364,7 +3371,8 @@ int background_MB_approx(
     tcur = TcmbStore + delT * k1[4] / 2;
     zhold = zstore + delT / 2.;
 
-    worked = RK_Eval(pba, GammaPhi, zhold, tmajH, tnuH, muMh, muNh, mMaj, tcur, Mnu, k2);
+    if (!no_ints) {worked = RK_Eval(pba, GammaPhi, zhold, tmajH, tnuH, muMh, muNh, mMaj, tcur, Mnu, k2);}
+    else {worked = RK_Eval_NoInt(pba, GammaPhi, zhold, tmajH, tnuH, muMh, muNh, mMaj, tcur, Mnu, k2);}
     if (linearMu) {k2[2] *= muMh;}
     if (linearMuN) {k2[3] *= muNh;}
     //if (linearT) {k2[0] *= tmajH;}
@@ -3383,7 +3391,8 @@ int background_MB_approx(
     tcur = TcmbStore + delT * k2[4] / 2;
     zhold = zstore + delT / 2.;
 
-    worked = RK_Eval(pba, GammaPhi, zhold, tmajH, tnuH, muMh, muNh, mMaj, tcur, Mnu, k3);
+    if (!no_ints) {worked = RK_Eval(pba, GammaPhi, zhold, tmajH, tnuH, muMh, muNh, mMaj, tcur, Mnu, k3);}
+    else {worked = RK_Eval_NoInt(pba, GammaPhi, zhold, tmajH, tnuH, muMh, muNh, mMaj, tcur, Mnu, k3);}
     if (linearMu) {k3[2] *= muMh;}
     if (linearMuN) {k3[3] *= muNh;}
     //if (linearT) {k3[0] *= tmajH;}
@@ -3401,7 +3410,8 @@ int background_MB_approx(
 
     tcur = TcmbStore  + delT * k3[4];
     zhold = zstore + delT;
-    worked = RK_Eval(pba, GammaPhi, zhold, tmajH, tnuH, muMh, muNh, mMaj, tcur, Mnu, k4);
+    if (!no_ints) {worked = RK_Eval(pba, GammaPhi, zhold, tmajH, tnuH, muMh, muNh, mMaj, tcur, Mnu, k4);}
+    else {worked = RK_Eval_NoInt(pba, GammaPhi, zhold, tmajH, tnuH, muMh, muNh, mMaj, tcur, Mnu, k4);}
     if (linearMu) {k4[2] *= muMh;}
     if (linearMuN) {k4[3] *= muNh;}
     //if (linearT) {k4[0] *= tmajH;}
@@ -3449,7 +3459,7 @@ int background_MB_approx(
         zhold = zstore;
 
         h_cmb = pow(_PI_, 2) / 15. * pow(tcur, 4); // energy density in ev^4
-        h_mat = (pba->Omega0_b + pba->Omega0_cdm) * pow((1. + zhold), 3) * 8.0835e-11 * pow(2.998e10 * 6.58e-16, 3) * pow(pba->h, 2); // eV^4
+        h_mat = (pba->Omega0_b + pba->Omega0_cdm) * pow((1. + zhold), 3) * 1.05e-5 * 1e9 * pow(2.998e10 * 6.58e-16, 3) * pow(pba->h, 2); // eV^4
 
         maxBndMaj = 20. * tmajH;
         if (maxBndMaj < (3. * mMaj)){maxBndMaj=3.*mMaj;}
@@ -3477,7 +3487,7 @@ int background_MB_approx(
         }
 
         maxBndNu = 20. * tnuH;
-        if (maxBndNu < (10 * Mnu)){maxBndNu=10*Mnu;}
+        if (maxBndNu < (3 * Mnu)){maxBndNu=3*Mnu;}
         nNu = 0.;
         rhoNu = 0.;
         presNu = 0.;
@@ -3502,13 +3512,19 @@ int background_MB_approx(
         }
 
         neff = (degNu * rhoNu + rhoMaj) / h_cmb * (8./7.) * pow(11./4., 4./3.)  ;
-        //printf("indx: %d \t z: %e \t Tcmb: %e \t RhoM/RhoN: %e \t Neff: %e \n", *lenIndx, zstore, TcmbStore, rhoMaj/ (degNu * rhoNu), neff );
-        if ((rhoMaj / (degNu * rhoNu) < 1e-6)&&(TcmbStore < mMaj)){break;}
-        if (GammaEff > 1){
-            if (*lenIndx < 1){delT *= 5.;};}
-        else {
-        if (*lenIndx < 1){delT *= 4;};}
-
+        //printf("indx: %d \t z: %e \t Tcmb: %e \t RhoM/RhoN: %e \t Neff: %e  \t TNu: %e \t MuN: %e \t FinalR: %e \n", *lenIndx, zstore, TcmbStore, rhoMaj/ (degNu * rhoNu), neff , TNstore, muNstore, degNu * rhoNu / h_mat);
+        
+        if ((rhoMaj / (degNu * rhoNu) < 1e-6)&&(TcmbStore < mMaj)&&(!no_ints)){
+        //printf("Transition to no integrals...... \n");
+        no_ints= true;
+        delT /= 10.;
+        //break;
+        }
+        
+        
+        if (GammaEff > 1){if (*lenIndx < 1){delT *= 5.;};}
+        else {if (*lenIndx < 1){delT *= 4;};}
+        
 
         pba->z_maj[*lenIndx] = zstore;
         pba->T_maj[*lenIndx] = TMstore;
@@ -3520,23 +3536,27 @@ int background_MB_approx(
         //rho_nu[*lenIndx] = degNu * rhoNu;
         //press_maj[*lenIndx] = presMaj;
         //press_nu[*lenIndx] = degNu * presNu;
-
+        
+    
         *lenIndx+=1;
+        if (TNstore < 0.1 * Mnu){break;}
     }
     //printf("indx: %d \t z: %e \t Tcmb: %e \t Tnu: %e \t Tmaj: %e \t Munu: %e \t MuMaj: %e \n", indx, zstore,  TcmbStore, TNstore, TMstore, muNstore, muMstore);
 
-    if (TcmbStore < (0.01 * mMaj) ) {
+    if ((TcmbStore < (0.01 * mMaj))&&(!no_ints)) {
+    //printf("Transition to no integrals...... \n");
+    no_ints= true;
+    delT /= 10.;
+    }
+    if (zstore < 10.0) {
     //printf("Sucessful Finish... \n");
-        stop_loop = true;}
+    stop_loop = true; }
 
   }
-
+  
     *lenIndx -= 1;
-//    z_maj[lenIndx] = zhold;
-//    rho_maj[lenIndx] = rho_maj[lenIndx - 1] * 1e-3;
-//    rho_nu[lenIndx] = rho_nu[lenIndx - 1] + rho_maj[lenIndx - 1];
-//    press_maj[lenIndx] = press_maj[lenIndx - 1] * 1e-3;
-//    press_nu[lenIndx] = press_nu[lenIndx - 1];
+
+
 
   return _SUCCESS_;
 }
@@ -3561,7 +3581,8 @@ int RK_Eval(struct background *pba, double GammaPhi, double zhold, double tmajH,
 
 
     h_cmb = pow(_PI_, 2.) / 15. * pow(tcur, 4.); // energy density in ev^4
-    h_mat = (pba->Omega0_b + pba->Omega0_cdm) * pow((1. + zhold), 3) * 8.0835e-11 * pow(2.998e10 * 6.58e-16, 3) * pow(pba->h, 2); // eV^4
+    h_mat = (pba->Omega0_b + pba->Omega0_cdm) * pow((1. + zhold), 3) * 1.05e-5 * 1e9 * pow(2.998e10 * 6.58e-16, 3) * pow(pba->h, 2); // eV^4
+    
 
     maxBndMaj = 20. * tmajH;
     if (maxBndMaj < (3. * mMaj)){maxBndMaj=3. * mMaj;}
@@ -3635,7 +3656,7 @@ int RK_Eval(struct background *pba, double GammaPhi, double zhold, double tmajH,
     dnNudt = -2.*dnphidt / 6.;
 
     maxBndNu = 20. * tnuH;
-    if (maxBndNu < (5. * Mnu)){maxBndNu=5.*Mnu;}
+    if (maxBndNu < (3. * Mnu)){maxBndNu=3.*Mnu;}
     // Nu integration
     sigSt = (double)((maxBndNu - Mnu) / sigP);
     for (int ii=0; ii < (sigP-1); ii++) {
@@ -3680,6 +3701,87 @@ int RK_Eval(struct background *pba, double GammaPhi, double zhold, double tmajH,
     k[4] = tcur / (1. + zhold);
     //printf("Check: %e \t %e \t %e \t %e \t %e \n", tmajH, muMh, rhoMaj, nMaj,presMaj);
 
+    return _SUCCESS_; }
+
+
+
+int RK_Eval_NoInt(struct background *pba, double GammaPhi, double zhold, double tmajH, double tnuH, double muMh, double muNh, double mMaj, double tcur, double Mnu, double k[5]) {
+    double epsil=1e-10;
+    double H_preF = 8.*_PI_/3. * 6.707e-57; // eV^-2
+    //double minMuChP = -1e-50;
+    double nMaj=0, rhoMaj=0, presMaj=0, dnPdT=0, drPdT=0, dnPdmu=0, drPdmu=0, ColTrho=0, ColTn=0, sigSt;
+    double ehold0, ehold1, trap0, trap1, dnphidt, drhophidt, dnNudt, drhoNudt;
+    double nNu=0, rhoNu=0, presNu=0, dnNdT=0, drNdT=0, dnNdmu=0, drNdmu=0, maxBndNu, maxBndMaj;
+    double h_cmb, h_mat, holdCT, degNu=6, degMaj=1, Hub;
+    int sigP=100;
+    bool mu_off= false;
+
+    h_cmb = pow(_PI_, 2.) / 15. * pow(tcur, 4.); // energy density in ev^4
+    h_mat = (pba->Omega0_b + pba->Omega0_cdm) * pow((1. + zhold), 3) * 1.05e-5 * 1e9 * pow(2.998e10 * 6.58e-16, 3) * pow(pba->h, 2); // eV^4
+
+    rhoMaj = 0.0;
+    // Maj integration
+    sigSt = (double)((maxBndMaj - mMaj) / sigP);
+    for (int ii=0; ii < (sigP-1); ii++) {
+        ehold0 = mMaj + sigSt * (double)ii;
+        ehold1 = mMaj + sigSt * (double)(ii+1);
+        if (ii==0) {ehold0 += epsil;}
+        // rho
+        trap0 = ehold0 * ehold0 * sqrt(ehold0*ehold0 - mMaj*mMaj) /  ( exp((ehold0 - muMh) / tmajH) - 1.);
+        trap1 = ehold1 * ehold1 * sqrt(ehold1*ehold1 - mMaj*mMaj) /  ( exp((ehold1 - muMh) / tmajH) - 1.) ;
+        rhoMaj += degMaj * 0.5 * sigSt * (trap0 + trap1)  / (2. * _PI_ * _PI_);
+        }
+
+    maxBndNu = 20. * tnuH;
+    if (maxBndNu < (2. * Mnu)){maxBndNu=2.*Mnu;}
+    // Nu integration
+    sigP = 1000;
+    sigSt = (double)((maxBndNu - Mnu) / sigP);
+    for (int ii=0; ii < (sigP-1); ii++) {
+        ehold0 = Mnu + sigSt * (double)ii;
+        ehold1 = Mnu + sigSt * (double)(ii+1);
+        if (ii==0) {ehold0 += epsil;}
+        // n
+        trap0 =   ehold0 * sqrt(ehold0*ehold0 - Mnu*Mnu) /  ( exp((sqrt(ehold0*ehold0 - Mnu*Mnu) - muNh) / tnuH) + 1.) / (2. * _PI_ * _PI_);
+        trap1 = ehold1 * sqrt(ehold1*ehold1 - Mnu*Mnu) /  ( exp((sqrt(ehold1*ehold1 - Mnu*Mnu) - muNh) / tnuH) + 1.) / (2. * _PI_ * _PI_);
+        nNu += 0.5 * sigSt * (trap0 + trap1);
+        // rho
+        trap0 =   ehold0 * ehold0 * sqrt(ehold0*ehold0 - Mnu*Mnu) /  ( exp((sqrt(ehold0*ehold0 - Mnu*Mnu) - muNh) / tnuH) + 1.) / (2. * _PI_ * _PI_);
+        trap1 =  ehold1 * ehold1 * sqrt(ehold1*ehold1 - Mnu*Mnu) /  ( exp((sqrt(ehold1*ehold1 - Mnu*Mnu) - muNh) / tnuH) + 1.) / (2. * _PI_ * _PI_);
+        rhoNu += 0.5 * sigSt * (trap0 + trap1);
+        // pressure
+        trap0 =  pow(ehold0*ehold0 - Mnu*Mnu, 1.5) /  ( exp((sqrt(ehold0*ehold0 - Mnu*Mnu) - muNh) / tnuH) + 1.) / (6. * _PI_ * _PI_);
+        trap1 =  pow(ehold1*ehold1 - Mnu*Mnu, 1.5) /  ( exp((sqrt(ehold1*ehold1 - Mnu*Mnu) - muNh) / tnuH) + 1.) / (6. * _PI_ * _PI_);
+        presNu += 0.5 * sigSt * (trap0 + trap1);
+        // dndT
+        trap0 =  ehold0 * sqrt(ehold0*ehold0 - Mnu*Mnu) * ((sqrt(ehold0*ehold0 - Mnu*Mnu) - muNh) / (4 * tnuH *tnuH)) /   pow(cosh((sqrt(ehold0*ehold0 - Mnu*Mnu) - muNh) / 2. / tnuH), 2.) ;
+        trap1 =  ehold1 * sqrt(ehold1*ehold1 - Mnu*Mnu) * ((sqrt(ehold1*ehold1 - Mnu*Mnu) - muNh) / (4 * tnuH *tnuH)) /   pow(cosh((sqrt(ehold1*ehold1 - Mnu*Mnu) - muNh) / 2. / tnuH), 2.) ;
+        dnNdT += 0.5 * sigSt * (trap0 + trap1) / (2. * _PI_ * _PI_);
+        // drhodT
+        trap0 = ehold0 * ehold0 * sqrt(ehold0*ehold0 - Mnu*Mnu) * ((sqrt(ehold0*ehold0 - Mnu*Mnu) - muNh) / (4. * tnuH *tnuH)) /   pow(cosh((sqrt(ehold0*ehold0 - Mnu*Mnu) - muNh) / 2. / tnuH), 2.) ;
+        trap1 =  ehold1 * ehold1 * sqrt(ehold1*ehold1 - Mnu*Mnu) * ((sqrt(ehold1*ehold1 - Mnu*Mnu) - muNh) / (4. * tnuH *tnuH)) /   pow(cosh((sqrt(ehold1*ehold1 - Mnu*Mnu) - muNh) / 2. / tnuH), 2.) ;
+        drNdT += 0.5 * sigSt * (trap0 + trap1) / (2. * _PI_ * _PI_);
+        // dndmu
+        trap0 = ehold0 * sqrt(ehold0*ehold0 - Mnu*Mnu)  /   (2. * tnuH * cosh((sqrt(ehold0*ehold0 - Mnu*Mnu) - muNh) / tnuH) + 2. *tnuH) ;
+        trap1 = ehold1 * sqrt(ehold1*ehold1 - Mnu*Mnu) /   (2. * tnuH * cosh((sqrt(ehold1*ehold1 - Mnu*Mnu) - muNh) / tnuH) + 2. *tnuH) ;
+        dnNdmu += 0.5 * sigSt * (trap0 + trap1) / (2. * _PI_ * _PI_);
+        // drdmu
+        trap0 =  ehold0 * ehold0 * sqrt(ehold0*ehold0 - Mnu*Mnu) /  (2. * tnuH * cosh((sqrt(ehold0*ehold0 - Mnu*Mnu) - muNh) / tnuH) + 2. *tnuH) ;
+        trap1 =   ehold1 * ehold1 * sqrt(ehold1*ehold1 - Mnu*Mnu) / (2. * tnuH * cosh((sqrt(ehold1*ehold1 - Mnu*Mnu) - muNh) / tnuH) + 2. *tnuH) ;
+        drNdmu += 0.5 * sigSt * (trap0 + trap1) / (2. * _PI_ * _PI_);
+    }
+    Hub = sqrt( H_preF * (degNu * rhoNu + rhoMaj + h_mat + h_cmb)) ; // eV
+
+    k[2] =  (muMh - mMaj) / (1. + zhold) / muMh;
+    k[0] =  2 * tmajH / (1. + zhold) / tmajH;
+    
+    k[1] = (3*((presNu + rhoNu) * dnNdmu - nNu * drNdmu) - (dnNdmu * drhoNudt - drNdmu * dnNudt) / Hub) / (dnNdmu * drNdT - dnNdT * drNdmu) / (1. + zhold) / tnuH;
+    k[3] = -(3*((presNu + rhoNu) * dnNdT - nNu * drNdT) - (dnNdT * drhoNudt - drNdT * dnNudt) / Hub) / (dnNdmu * drNdT - dnNdT * drNdmu) / (1. + zhold) / muNh;
+    
+    //if (fabs(k[3]) > 1) {k[3] /= fabs(k[3]);}
+    k[4] = tcur / (1. + zhold);
+    //printf("Check: %e \t %e \t %e \t %e \t %e \n", tmajH, muMh, rhoMaj, nMaj,presMaj);
+    //printf("k1: %e \n", k[1]);
     return _SUCCESS_; }
 
 double bessk( int n, double x )
