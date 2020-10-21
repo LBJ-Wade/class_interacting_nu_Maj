@@ -572,6 +572,7 @@ extern "C" {
  int get_q_max(struct background *pba, int n_ncdm, double a, double M,double * qmax);
  int background_MB_approx(struct background *pba, int *lenIndx);
  int RK_Eval(struct background *pba, double GammaPhi, double zhold, double tmajH, double tnuH, double muMh, double muNh, double mMaj, double tcur, double mNu, double k[5]);
+ int RK_Eval_NoInt(struct background *pba, double GammaPhi, double zhold, double tmajH, double tnuH, double muMh, double muNh, double mMaj, double tcur, double mNu, double k[5]);
  double bessk( int n, double x );
  double bessk1( double x );
  double bessk0( double x );
