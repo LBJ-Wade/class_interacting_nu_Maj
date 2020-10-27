@@ -1461,8 +1461,8 @@ int interpolate_T_and_mu_at_z(struct background *pba,int n_ncdm, double z,double
           if(pba->z_nrel[n_ncdm] <= 0)pba->z_nrel[n_ncdm] = z;
           //check that we were correct.
           // *mu_ncdm = (pba->Mu_nu[pba->len_maj])*(1+pba->z_nrel[n_ncdm])/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+pba->z_nrel[n_ncdm]),2);//if we include the mass leads to big discontinuity; is that ok?
-          //*mu_ncdm = (pba->Mu_nu[pba->len_maj]-pba->m_ncdm_in_eV[n_ncdm])*(1+pba->z_nrel[n_ncdm])/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+pba->z_nrel[n_ncdm]),2);
-          //*T_ncdm = pba->T_nu[pba->len_maj]*(1+pba->z_nrel[n_ncdm])/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+pba->z_nrel[n_ncdm]),2);
+          // *mu_ncdm = (pba->Mu_nu[pba->len_maj]-pba->m_ncdm_in_eV[n_ncdm])*(1+pba->z_nrel[n_ncdm])/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+pba->z_nrel[n_ncdm]),2);
+          // *T_ncdm = pba->T_nu[pba->len_maj]*(1+pba->z_nrel[n_ncdm])/(1+pba->z_maj[pba->len_maj])*pow((1+z)/(1+pba->z_nrel[n_ncdm]),2);
           //*T_ncdm = pba->T_nu[pba->len_maj] / ();
           //*mu_ncdm = pba->Mu_nu[pba->len_maj];
           //VP: HERE NEED TO UNDERSTAND WHY THE CODE BREAKS IF T AND MU EXTRAPOLATION CHANGES.
@@ -1471,6 +1471,10 @@ int interpolate_T_and_mu_at_z(struct background *pba,int n_ncdm, double z,double
     }
 
     // printf("pba->z_nrel[n_ncdm = %d] %e\n",n_ncdm,pba->z_nrel[n_ncdm]);
+  }
+
+  if(*T_ncdm < 3./20*pba->m_ncdm_in_eV[n_ncdm]){
+    if(pba->z_nrel[n_ncdm] <= 0)pba->z_nrel[n_ncdm] = z;
   }
 
   return _SUCCESS_;
@@ -1607,7 +1611,7 @@ int background_ncdm_init(
      test = background_MB_approx(pba, &lenIndx);
      pba->len_maj = lenIndx;
      //printf("CHECKING.... \t %e \t %d \n", pba->z_maj[lenIndx], lenIndx);
-     
+
      //VP: once we know the size of the table, we can "realloc"; i.e. removes useless space in tables.
      pba->z_maj = realloc(pba->z_maj, sizeof(double*)*(pba->len_maj+1));
      pba->T_maj = realloc(pba->T_maj, sizeof(double*)*(pba->len_maj+1));
@@ -3304,9 +3308,9 @@ int background_MB_approx(
   indx = 0;
 
   while (!stop_loop){
-    
+
     indx+=1;
-    
+
     if ((TcmbStore < ThreshJump)&&(!shrinkDT)){
     delT /= 10.;
     if (ThreshJump == mMaj){
@@ -3325,7 +3329,7 @@ int background_MB_approx(
     zhold = zstore;
     if (!no_ints) {worked = RK_Eval(pba, GammaPhi, zhold, tmajH, tnuH, muMh, muNh, mMaj, tcur, Mnu, k1);}
     else {worked = RK_Eval_NoInt(pba, GammaPhi, zhold, tmajH, tnuH, muMh, muNh, mMaj, tcur, Mnu, k1);}
-    
+
     if (linearMu) {k1[2] *= muMh;}
     if (linearMuN) {k1[3] *= muNh;}
     //if (linearT) {k1[0] *= tmajH;}
@@ -3486,18 +3490,18 @@ int background_MB_approx(
 
         neff = (degNu * rhoNu + rhoMaj) / h_cmb * (8./7.) * pow(11./4., 4./3.)  ;
         //printf("indx: %d \t z: %e \t Tcmb: %e \t RhoM/RhoN: %e \t Neff: %e  \t TNu: %e \t MuN: %e \t FinalR: %e \n", *lenIndx, zstore, TcmbStore, rhoMaj/ (degNu * rhoNu), neff , TNstore, muNstore, degNu * rhoNu / h_mat);
-        
+
         if ((rhoMaj / (degNu * rhoNu) < 1e-6)&&(TcmbStore < mMaj)&&(!no_ints)){
         //printf("Transition to no integrals...... \n");
         no_ints= true;
         delT /= 10.;
         //break;
         }
-        
-        
+
+
         if (GammaEff > 1){if (*lenIndx < 1){delT *= 5.;};}
         else {if (*lenIndx < 1){delT *= 4;};}
-        
+
 
         pba->z_maj[*lenIndx] = zstore;
         pba->T_maj[*lenIndx] = TMstore;
@@ -3509,8 +3513,8 @@ int background_MB_approx(
         //rho_nu[*lenIndx] = degNu * rhoNu;
         //press_maj[*lenIndx] = presMaj;
         //press_nu[*lenIndx] = degNu * presNu;
-        
-    
+
+
         *lenIndx+=1;
         if (TNstore < 0.1 * Mnu){break;}
     }
@@ -3526,7 +3530,7 @@ int background_MB_approx(
     stop_loop = true; }
 
   }
-  
+
     *lenIndx -= 1;
 
 
@@ -3555,7 +3559,7 @@ int RK_Eval(struct background *pba, double GammaPhi, double zhold, double tmajH,
 
     h_cmb = pow(_PI_, 2.) / 15. * pow(tcur, 4.); // energy density in ev^4
     h_mat = (pba->Omega0_b + pba->Omega0_cdm) * pow((1. + zhold), 3) * 1.05e-5 * 1e9 * pow(2.998e10 * 6.58e-16, 3) * pow(pba->h, 2); // eV^4
-    
+
 
     maxBndMaj = 20. * tmajH;
     if (maxBndMaj < (3. * mMaj)){maxBndMaj=3. * mMaj;}
@@ -3747,10 +3751,10 @@ int RK_Eval_NoInt(struct background *pba, double GammaPhi, double zhold, double 
 
     k[2] =  (muMh - mMaj) / (1. + zhold) / muMh;
     k[0] =  2 * tmajH / (1. + zhold) / tmajH;
-    
+
     k[1] = (3*((presNu + rhoNu) * dnNdmu - nNu * drNdmu) - (dnNdmu * drhoNudt - drNdmu * dnNudt) / Hub) / (dnNdmu * drNdT - dnNdT * drNdmu) / (1. + zhold) / tnuH;
     k[3] = -(3*((presNu + rhoNu) * dnNdT - nNu * drNdT) - (dnNdT * drhoNudt - drNdT * dnNudt) / Hub) / (dnNdmu * drNdT - dnNdT * drNdmu) / (1. + zhold) / muNh;
-    
+
     //if (fabs(k[3]) > 1) {k[3] /= fabs(k[3]);}
     k[4] = tcur / (1. + zhold);
     //printf("Check: %e \t %e \t %e \t %e \t %e \n", tmajH, muMh, rhoMaj, nMaj,presMaj);

@@ -9420,8 +9420,8 @@ int perturb_derivs(double tau,
 
             /** VP: If neutrino have non-zero Gamma_phi we compute collision term*/
 
-            // if(pba->Gamma_phi[n_ncdm] != 0 && 1./a-1. >= pba->z_nrel[pba->entry_is_M_phi] && 1/a-1 >= pba->z_maj[pba->len_maj] && 1/a-1 <= 3000 && ppt->include_collision_term == _TRUE_){
-            if(pba->Gamma_phi[n_ncdm] != 0 && 1/a-1 >= pba->z_maj[pba->len_maj] && 1/a-1 <= pba->z_maj[20] &&  ppt->include_collision_term == _TRUE_){
+            if(pba->Gamma_phi[n_ncdm] != 0 && (1./a-1. >= pba->z_nrel[pba->entry_is_M_phi] || 1/a-1 >= pba->z_maj[pba->len_maj]) && 1/a-1 <= pba->z_maj[20] && ppt->include_collision_term == _TRUE_){
+            // if(pba->Gamma_phi[n_ncdm] != 0 && 1/a-1 >= pba->z_maj[pba->len_maj] && 1/a-1 <= pba->z_maj[20] &&  ppt->include_collision_term == _TRUE_){
               // printf("dealing with ncdm %d at idx_q %d a %e\n", n_ncdm,index_q,a);
               // if(index_q==5 && n_ncdm ==0 && k==1)printf("%e ",1/a-1);
               for(l=0; l<pv->l_max_ncdm[n_ncdm]; l++){
@@ -10859,13 +10859,13 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
   double epsilon_min, epsilon_max,logepsilon;
   double max_steps = ppt->integral_collision_term_max_steps;
   int sign;
-  int integral_is_log = _TRUE_;
+  int integral_is_log = _FALSE_;
   *Collision_l = 0;
   double T_nu,T_phi,mu_nu,mu_phi;
   double Integral = 0;
   double p,E;
 
-
+  int count_nu=0, count_phi=0;
 
 
 
@@ -10894,12 +10894,10 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
   }
   else{
     idx_nu = pv->index_pt_psi0_ncdm1;
-    for(i=0;i<n_ncdm;i++){
-      idx_nu += (pv->q_size_ncdm[i])*(pv->l_max_ncdm[i]+1);//the majoron entries are located after all the entries related to the Neutrinos
-    }
     n_ncdm_nu = n_ncdm;
     T_nu = pvecback[pba->index_bg_T_ncdm1+n_ncdm_nu];
     mu_nu = pvecback[pba->index_bg_Mu_ncdm1+n_ncdm_nu];
+    // mu_nu = 0;
     T_phi = pvecback[pba->index_bg_T_ncdm1+pba->entry_is_M_phi];
     mu_phi = pvecback[pba->index_bg_Mu_ncdm1+pba->entry_is_M_phi];
 
@@ -10918,9 +10916,11 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
     epsilon_max = m_star*pba->M_phi/2/pba->m_ncdm_in_eV[n_ncdm_nu]/pba->m_ncdm_in_eV[n_ncdm_nu]
               *(epsilon_nu*sqrt(1+4*pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]/m_star/m_star)+q_nu);
 
-    // *Collision_l = a*T_nu*pv->psi_table[n_ncdm][index_l_fix][index_q_fix]*exp(mu_nu/T_nu)*(exp(-epsilon_max/a/T_nu)-exp(-epsilon_min/a/T_nu));
     *Collision_l = a*T_nu*psi_table[idx_nu+index_l_fix+(pv->l_max_ncdm[n_ncdm]+1)*(index_q_fix)]*exp(mu_nu/T_nu)*(exp(-epsilon_max/a/T_nu)-exp(-epsilon_min/a/T_nu));
-
+    // *Collision_l = psi_table[idx_nu+index_l_fix+(pv->l_max_ncdm[n_ncdm]+1)*(index_q_fix)]*exp(-(epsilon_nu/a-mu_nu)/T_nu)*(
+    //   a*T_nu*(exp(((epsilon_nu-epsilon_min)/a+mu_nu)/T_nu)-exp(((epsilon_nu-epsilon_max)/a+mu_nu)/T_nu)));
+    // +a*T_phi*exp(mu_phi/T_phi)*(exp(-epsilon_min/a/T_phi)-exp(-epsilon_max/a/T_phi)));
+    // printf("n_ncdm %d a %e epsilon_nu %e epsilon_min %e epsilon_max %e *Collision_l %e (exp(((epsilon_nu-epsilon_min)/a+mu_nu)/T_nu)-exp(((epsilon_nu-epsilon_max)/a+mu_nu)/T_nu)) %e \n",n_ncdm,a,epsilon_nu,epsilon_min,epsilon_max,*Collision_l,(exp(((epsilon_nu-epsilon_min)/a+mu_nu)/T_nu)-exp(((epsilon_nu-epsilon_max)/a+mu_nu)/T_nu)));
  }
 
  if(ppt->include_integral_approximate_collision_term == _TRUE_){
@@ -11004,7 +11004,7 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
        // printf("maj psi_nu_ephienu %e \n", q,psi_nu_ephienu);
        //compute integral
        Integral += -w*fbarnu_enu*(fbarnu_ephienu)*(psi_nu_enu+psi_nu_ephienu);
-
+       if(-w*fbarnu_enu*(fbarnu_ephienu)*(psi_nu_enu+psi_nu_ephienu)!=0)count_phi++;
        }else{
        //if we treat the neutrinos, we loop over "phi"
        if(integral_is_log == _TRUE_)
@@ -11057,7 +11057,7 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
        // printf("neutrinos depsilon*depsilon-a*a*pba->m_ncdm_in_eV[n_ncdm_nu]*pba->m_ncdm_in_eV[n_ncdm_nu] %e\n", depsilon*depsilon-a*a*pba->m_ncdm_in_eV[n_ncdm_nu]*pba->m_ncdm_in_eV[n_ncdm_nu]);
        if(depsilon*depsilon-a*a*pba->m_ncdm_in_eV[n_ncdm_nu]*pba->m_ncdm_in_eV[n_ncdm_nu]>0){
          q = sqrt(depsilon*depsilon-a*a*pba->m_ncdm_in_eV[n_ncdm_nu]*pba->m_ncdm_in_eV[n_ncdm_nu]);
-         // printf("here q %e\n", q);
+         // printf("here q %e qmin %e qmax %e\n", q,pba->q_ncdm[n_ncdm][0]*qmax_ncdm,pba->q_ncdm[n_ncdm][pba->q_size_ncdm[n_ncdm]-1]*qmax_ncdm);
 
          class_call(interpolate_linear_psi_table_at_eps(pba,pv,a,q,qmax_ncdm,index_l_fix,psi_table,n_ncdm_nu,&psi_nu_ephienu),pba->error_message,
          pba->error_message);
@@ -11065,14 +11065,23 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
        // printf("neutrinos psi_nu_ephienu %e\n", psi_nu_ephienu);
 
        Integral += w*(fbarphi_ephi*psi_phi_ephi-fbarnu_enu*fbarnu_ephienu*psi_nu_ephienu);
-
+       // Integral += w*(exp((epsilon_nu/a-mu_nu)/T_nu)*exp(-(epsilon_phi/a-mu_phi)/T_phi)*psi_phi_ephi-exp(-((epsilon_phi-epsilon_nu)/a-mu_nu)/T_nu)*psi_nu_ephienu);
+       // if(w*(exp((epsilon_nu/a-mu_nu)/T_nu)*exp(-(epsilon_phi/a-mu_phi)/T_phi)*psi_phi_ephi-exp(-((epsilon_phi-epsilon_nu)/a-mu_nu)/T_nu)*psi_nu_ephienu)!=0)count_nu++;
+       // Integral += w*(-fbarnu_enu*fbarnu_ephienu*psi_nu_ephienu);
+       // if(w*(-fbarnu_enu*fbarnu_ephienu*psi_nu_ephienu)!=0)
+       // printf("q %e epsilon_phi %e qmax_phi %e fbarphi_ephi %e psi_phi_ephi %e \n depislon %e fbarnu_enu %e fbarnu_ephienu %e psi_nu_ephienu %e \n",q,epsilon_phi,fbarphi_ephi,psi_phi_ephi ,depsilon,fbarnu_enu,fbarnu_ephienu,psi_nu_ephienu   );
+       // printf("q %e epsilon_phi %e qmax_phi %e fbarphi_ephi %e psi_phi_ephi %e \n depislon %e fbarnu_enu %e fbarnu_ephienu %e psi_nu_ephienu %e \n",q,epsilon_phi,qmax_phi,fbarphi_ephi,psi_phi_ephi ,depsilon,fbarnu_enu,fbarnu_ephienu,psi_nu_ephienu   );
 
      }
    }
    if(ppt->perturbations_verbose>10)printf("l %d q %d a %e n_ncdm %d *Collision_l %e Integral %e \n",index_l_fix,index_q_fix,a,n_ncdm,*Collision_l,Integral);
+
    *Collision_l += Integral;
 
  }
+
+
+ // printf("index_q %d count_nu %d count_phi %d\n",index_q_fix,count_nu,count_phi);
 
 
   q = pba->q_ncdm[n_ncdm][index_q_fix]*qmax_ncdm; //conversion to eV
