@@ -9380,7 +9380,6 @@ int perturb_derivs(double tau,
           /** - -----> loop over momentum */
 
           for (index_q=0; index_q < pv->q_size_ncdm[n_ncdm]; index_q++) {
-
             /** - -----> define intermediate quantities */
             //
             // if(n_ncdm ==2){
@@ -9419,10 +9418,11 @@ int perturb_derivs(double tau,
             qk_div_epsilon = k*q/epsilon;
 
             /** VP: If neutrino have non-zero Gamma_phi we compute collision term*/
-
-            if(pba->Gamma_phi[n_ncdm] != 0 && (1./a-1. >= pba->z_nrel[pba->entry_is_M_phi] || 1/a-1 >= pba->z_maj[pba->len_maj]) && 1/a-1 <= pba->z_maj[20] && ppt->include_collision_term == _TRUE_){
+            // printf("pba->z_nrel[pba->entry_is_M_phi]  %e pba->z_maj[pba->len_maj] %e\n", pba->z_nrel[pba->entry_is_M_phi] ,pba->z_maj[pba->len_maj]);
+            // printf("dealing with ncdm %d at idx_q %d a %e k %e a_prime_over_a %e\n", n_ncdm,index_q,a,k,a_prime_over_a);
+            // if(pba->Gamma_phi[n_ncdm] != 0 && (1./a-1. >= pba->z_nrel[pba->entry_is_M_phi] || 1/a-1 >= pba->z_maj[pba->len_maj]) && 1/a-1 <= pba->z_maj[20] && ppt->include_collision_term == _TRUE_ && k > a_prime_over_a){
+            if(pba->Gamma_phi[n_ncdm] != 0 && (1./a-1. >= pba->z_nrel[pba->entry_is_M_phi] || 1/a-1 >= pba->z_maj[pba->len_maj]) && 1/a-1 <= pba->z_maj[20] && ppt->include_collision_term == _TRUE_ ){
             // if(pba->Gamma_phi[n_ncdm] != 0 && 1/a-1 >= pba->z_maj[pba->len_maj] && 1/a-1 <= pba->z_maj[20] &&  ppt->include_collision_term == _TRUE_){
-              // printf("dealing with ncdm %d at idx_q %d a %e\n", n_ncdm,index_q,a);
               // if(index_q==5 && n_ncdm ==0 && k==1)printf("%e ",1/a-1);
               for(l=0; l<pv->l_max_ncdm[n_ncdm]; l++){
                   // if(n_ncdm == 1)printf("index nu should be %d\n", idx+l);
@@ -10460,6 +10460,7 @@ int interpolate_linear_psi_table_at_eps(
   for(i=0;i<n_ncdm;i++){
     idx_nu += (pv->q_size_ncdm[i])*(pv->l_max_ncdm[i]+1);//the majoron entries are located after all the entries related to the Neutrinos
   }
+  // printf("idx_nu %d n_ncdm %d\n", idx_nu,n_ncdm);
   *psi_at_eps = 0;
   if (q < pba->q_ncdm[n_ncdm][pba->q_size_ncdm[n_ncdm]-1]*qmax && q > pba->q_ncdm[n_ncdm][0]*qmax){
     /** - interpolate from pre-computed table with array_interpolate() */
@@ -10471,6 +10472,7 @@ int interpolate_linear_psi_table_at_eps(
             // *psi_at_eps = (psi_table[pba->i+1]-psi_table[i])/(pba->q_ncdm[n_ncdm][i+1]*qmax-pba->q_ncdm[n_ncdm][i]*qmax)*q;
             *psi_at_eps = (psi_table[idx_nu+l+(pv->l_max_ncdm[n_ncdm]+1)*(i+1)]-psi_table[idx_nu+l+(pv->l_max_ncdm[n_ncdm]+1)*(i)])/(pba->q_ncdm[n_ncdm][i+1]*qmax-pba->q_ncdm[n_ncdm][i]*qmax)*q;
             // *psi_at_eps = (psi_table[idx_nu+l+(pv->l_max_ncdm[n_ncdm]+1)*(i)]);
+            // if(n_ncdm==1)printf("idx_nu %d psi_table[idx_nu+l+(pv->l_max_ncdm[n_ncdm]+1)*(i+1)] %e  psi_table[idx_nu+l+(pv->l_max_ncdm[n_ncdm]+1)*(i)] %e \n",idx_nu,psi_table[idx_nu+l+(pv->l_max_ncdm[n_ncdm]+1)*(i+1)],psi_table[idx_nu+l+(pv->l_max_ncdm[n_ncdm]+1)*(i)]);
             // *psi_at_eps = 0;
             // break;
 
@@ -10501,7 +10503,7 @@ int interpolate_linear_psi_table_at_eps(
     // printf("bad! eps %e psi_at_eps %e\n",eps, *psi_at_eps);
 
   }
-  // printf("n_ncdm %d psi_at_eps %e q %e qmax %e qmin %e\n",n_ncdm, *psi_at_eps,q,pba->q_ncdm[n_ncdm][pba->q_size_ncdm[n_ncdm]-1]*qmax,pba->q_ncdm[n_ncdm][0]*qmax);
+  // if(n_ncdm==1)printf("n_ncdm %d psi_at_eps %e q %e qmax %e qmin %e\n",n_ncdm, *psi_at_eps,q,pba->q_ncdm[n_ncdm][pba->q_size_ncdm[n_ncdm]-1]*qmax,pba->q_ncdm[n_ncdm][0]*qmax);
   // free(table_eps);
   return _SUCCESS_;
 }
@@ -10854,7 +10856,7 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
   double q,q_phi,q_nu,epsilon_phi,epsilon_nu,depsilon,epsilon,fbarphi_ephi,fbarnu_enu,fbarnu_ephienu,psi_phi_ephi,psi_nu_enu,psi_nu_ephienu,m_star,w,fbar;
   int index_q_phi,index_q_nu, idx_nu,idx_phi, index_q_loop,n_ncdm_nu,i;
   // double qmax_ncdm;
-  double fbar_phi,qmax_phi;
+  double fbar_phi,qmax_phi,qmax_nu;
   double h;
   double epsilon_min, epsilon_max,logepsilon;
   double max_steps = ppt->integral_collision_term_max_steps;
@@ -10877,6 +10879,9 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
     }
     //we start by attributing a number of quantities that are fixed.
     n_ncdm_nu = pba->entry_is_M_phi-1;//currently me assume 2 species, to be improved.
+    class_call(get_q_max(pba,n_ncdm_nu,a,pba->m_ncdm_in_eV[n_ncdm_nu],&qmax_nu),
+    pba->error_message,
+    pba->error_message);
     m_star = sqrt(pba->M_phi*pba->M_phi-4*pba->m_ncdm_in_eV[pba->entry_is_M_phi-1]*pba->m_ncdm_in_eV[pba->entry_is_M_phi-1]); //for the moment we assume degenerate mass neutrinos.//we add a minus sign for the majoron
     T_nu = pvecback[pba->index_bg_T_ncdm1+n_ncdm_nu];
     mu_nu = pvecback[pba->index_bg_Mu_ncdm1+n_ncdm_nu];
@@ -10972,9 +10977,11 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
        psi_nu_enu = 0;
        if(epsilon_nu*epsilon_nu>=a*a*pba->m_ncdm_in_eV[n_ncdm_nu]*pba->m_ncdm_in_eV[n_ncdm_nu]){
          q = sqrt(epsilon_nu*epsilon_nu-a*a*pba->m_ncdm_in_eV[n_ncdm_nu]*pba->m_ncdm_in_eV[n_ncdm_nu]);
-         // printf("here q %e ",q );
-         class_call(interpolate_linear_psi_table_at_eps(pba,pv,a,q,qmax_ncdm,index_l_fix,psi_table,n_ncdm_nu,&psi_nu_enu),pba->error_message,
-         pba->error_message);
+           if(q <= qmax_nu  && q >= pba->q_ncdm[n_ncdm_nu][0]*qmax_nu && fbarnu_enu > 1e-40){
+           // printf("here q %e ",q );
+           class_call(interpolate_linear_psi_table_at_eps(pba,pv,a,q,qmax_nu,index_l_fix,psi_table,n_ncdm_nu,&psi_nu_enu),pba->error_message,
+           pba->error_message);
+         }
        }
 
       // printf("maj psi_nu_enu %e  ",psi_nu_enu);
@@ -10998,8 +11005,10 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
 
        if(depsilon*depsilon>=a*a*pba->m_ncdm_in_eV[n_ncdm_nu]*pba->m_ncdm_in_eV[n_ncdm_nu]){
          q = sqrt(depsilon*depsilon-a*a*pba->m_ncdm_in_eV[n_ncdm_nu]*pba->m_ncdm_in_eV[n_ncdm_nu]);
-         if(depsilon>0)class_call(interpolate_linear_psi_table_at_eps(pba,pv,a,q,qmax_ncdm,index_l_fix,psi_table,n_ncdm_nu,&psi_nu_ephienu),pba->error_message,
-         pba->error_message);
+         if(depsilon>0 &&  q <= qmax_nu  && q >= pba->q_ncdm[n_ncdm_nu][0]*qmax_nu && fbarnu_ephienu > 1e-40){
+           class_call(interpolate_linear_psi_table_at_eps(pba,pv,a,q,qmax_nu,index_l_fix,psi_table,n_ncdm_nu,&psi_nu_ephienu),pba->error_message,
+           pba->error_message);
+         }
        }
        // printf("maj psi_nu_ephienu %e \n", q,psi_nu_ephienu);
        //compute integral
@@ -11032,12 +11041,14 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
        if(epsilon_phi*epsilon_phi>=a*a*pba->M_phi*pba->M_phi){
          q = sqrt(epsilon_phi*epsilon_phi-a*a*pba->M_phi*pba->M_phi);
 
-         class_call(interpolate_linear_psi_table_at_eps(pba,pv,a,q,qmax_phi,index_l_fix,psi_table,pba->entry_is_M_phi,&psi_phi_ephi),pba->error_message,
-         pba->error_message);
+          if(q <= qmax_phi  && q >= pba->q_ncdm[pba->entry_is_M_phi][0]*qmax_phi && fbarphi_ephi > 1e-40){
+            class_call(interpolate_linear_psi_table_at_eps(pba,pv,a,q,qmax_phi,index_l_fix,psi_table,pba->entry_is_M_phi,&psi_phi_ephi),pba->error_message,
+            pba->error_message);
+        }
 
        }
 
-       // printf("neutrinos psi_phi_ephi %e ", psi_phi_ephi);
+       // printf("neutrinos psi_phi_ephi %e q %e qmax_phi %e index_l_fix %d \n", psi_phi_ephi,q,qmax_phi,index_l_fix);
        depsilon = epsilon_phi-epsilon_nu;
        fbarnu_ephienu = 0;
        if(depsilon>0)class_call(background_ncdm_distribution_at_eps(
@@ -11059,8 +11070,10 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
          q = sqrt(depsilon*depsilon-a*a*pba->m_ncdm_in_eV[n_ncdm_nu]*pba->m_ncdm_in_eV[n_ncdm_nu]);
          // printf("here q %e qmin %e qmax %e\n", q,pba->q_ncdm[n_ncdm][0]*qmax_ncdm,pba->q_ncdm[n_ncdm][pba->q_size_ncdm[n_ncdm]-1]*qmax_ncdm);
 
-         class_call(interpolate_linear_psi_table_at_eps(pba,pv,a,q,qmax_ncdm,index_l_fix,psi_table,n_ncdm_nu,&psi_nu_ephienu),pba->error_message,
-         pba->error_message);
+         if(depsilon >0 &&  q <= qmax_ncdm  && q >= pba->q_ncdm[n_ncdm_nu][0]*qmax_ncdm && fbarnu_ephienu > 1e-40 && fbarnu_enu > 1e-40){
+           class_call(interpolate_linear_psi_table_at_eps(pba,pv,a,q,qmax_ncdm,index_l_fix,psi_table,n_ncdm_nu,&psi_nu_ephienu),pba->error_message,
+           pba->error_message);
+         }
        }
        // printf("neutrinos psi_nu_ephienu %e\n", psi_nu_ephienu);
 
