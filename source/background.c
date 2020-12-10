@@ -1219,7 +1219,7 @@ int background_ncdm_distribution(
 
 //      This is a quick test....
 //
-//      for (int ii=0; ii <= pba->len_maj; ii++){
+//      for (ii=0; ii <= pba->len_maj; ii++){
 //        printf("HERE: %d \t %e \t %e \t %e \t %e \t %e \n", ii, pba->z_maj[ii], pba->T_maj[ii], pba->T_nu[ii], pba->Mu_maj[ii], pba->Mu_nu[ii]);
 //    }
 //    exit(0);
@@ -1664,7 +1664,7 @@ int background_ncdm_init(
 
      //
      //
-     // for (int ii=0; ii <= pba->len_maj; ii++){
+     // for (ii=0; ii <= pba->len_maj; ii++){
      //     printf("HERE: %d \t %e \t %e \t %e \t %e \t %e \n", ii, pba->z_maj[ii], pba->T_maj[ii], pba->T_nu[ii], pba->Mu_maj[ii], pba->Mu_nu[ii]);
      // }
      // exit(0);
@@ -3279,11 +3279,12 @@ int background_MB_approx(
   double zstart, zend, zhold, delT;
   bool lower_sve_indx=false, shrinkDT=false, stop_loop=false, linearMu=false, linearMuN=false, linearT=false;
   bool no_ints=false;
+  int ii,n_ncdm;
   int numT=500000, sve_indx=100;
   *lenIndx=0;
-
+	
   GammaPhi = pba->Gamma_phi[0]; // Not yet generalized to deal with multiple neutrinos....
-  for (int n_ncdm=0; n_ncdm < pba->N_ncdm; n_ncdm++) {
+  for (n_ncdm=0; n_ncdm < pba->N_ncdm; n_ncdm++) {
         // if(pba->ncdm_background_distribution[n_ncdm]==_majoron_){mMaj = pba->m_ncdm_in_eV[n_ncdm];}
         if(n_ncdm == pba->entry_is_M_phi){mMaj = pba->m_ncdm_in_eV[n_ncdm];}
         else{Mnu = pba->m_ncdm_in_eV[n_ncdm];}
@@ -3445,7 +3446,7 @@ int background_MB_approx(
         presMaj=0.;
         // Maj integration
         sigSt = (double)((maxBndMaj - mMaj) / sigP);
-        for (int ii=0; ii < (sigP-1); ii++) {
+        for (ii=0; ii < (sigP-1); ii++) {
             ehold0 = mMaj + sigSt * (double)ii;
             ehold1 = mMaj + sigSt * (double)(ii+1);
             if (ii==0) {ehold0 += 1e-20;}
@@ -3470,7 +3471,7 @@ int background_MB_approx(
         presNu = 0.;
         // Nu integration
         sigSt = (double)((maxBndNu - Mnu) / sigP);
-        for (int ii=0; ii < (sigP-1); ii++) {
+        for (ii=0; ii < (sigP-1); ii++) {
             ehold0 = Mnu + sigSt * (double)ii;
             ehold1 = Mnu + sigSt * (double)(ii+1);
             if (ii==0) {ehold0 += 1e-20;}
@@ -3547,8 +3548,9 @@ int RK_Eval(struct background *pba, double GammaPhi, double zhold, double tmajH,
     double nNu=0, rhoNu=0, presNu=0, dnNdT=0, drNdT=0, dnNdmu=0, drNdmu=0, maxBndNu, maxBndMaj;
     double h_cmb, h_mat, holdCT, degNu=6, degMaj=1, Hub;
     int sigP=100;
+    int ii;
     bool mu_off= false;
-
+	 
 //    if (fabs(muMh) < fabs(minMuChP)){muMh = minMuChP;}
 //    if (!isfinite(muMh)||(muMh>=minMuChP)) {muMh = minMuChP;}
 //    if (!isfinite(muNh)||(muNh>=minCHP)) {muNh = minCHP;}
@@ -3574,7 +3576,7 @@ int RK_Eval(struct background *pba, double GammaPhi, double zhold, double tmajH,
     ColTn=0.;
     // Maj integration
     sigSt = (double)((maxBndMaj - mMaj) / sigP);
-    for (int ii=0; ii < (sigP-1); ii++) {
+    for (ii=0; ii < (sigP-1); ii++) {
         ehold0 = mMaj + sigSt * (double)ii;
         ehold1 = mMaj + sigSt * (double)(ii+1);
         if (ii==0) {ehold0 += epsil;}
@@ -3636,7 +3638,7 @@ int RK_Eval(struct background *pba, double GammaPhi, double zhold, double tmajH,
     if (maxBndNu < (3. * Mnu)){maxBndNu=3.*Mnu;}
     // Nu integration
     sigSt = (double)((maxBndNu - Mnu) / sigP);
-    for (int ii=0; ii < (sigP-1); ii++) {
+    for (ii=0; ii < (sigP-1); ii++) {
         ehold0 = Mnu + sigSt * (double)ii;
         ehold1 = Mnu + sigSt * (double)(ii+1);
         if (ii==0) {ehold0 += epsil;}
@@ -3691,6 +3693,7 @@ int RK_Eval_NoInt(struct background *pba, double GammaPhi, double zhold, double 
     double nNu=0, rhoNu=0, presNu=0, dnNdT=0, drNdT=0, dnNdmu=0, drNdmu=0, maxBndNu, maxBndMaj;
     double h_cmb, h_mat, holdCT, degNu=6, degMaj=1, Hub;
     int sigP=100;
+    int ii;
     bool mu_off= false;
 
     h_cmb = pow(_PI_, 2.) / 15. * pow(tcur, 4.); // energy density in ev^4
@@ -3699,7 +3702,7 @@ int RK_Eval_NoInt(struct background *pba, double GammaPhi, double zhold, double 
     rhoMaj = 0.0;
     // Maj integration
     sigSt = (double)((maxBndMaj - mMaj) / sigP);
-    for (int ii=0; ii < (sigP-1); ii++) {
+    for (ii=0; ii < (sigP-1); ii++) {
         ehold0 = mMaj + sigSt * (double)ii;
         ehold1 = mMaj + sigSt * (double)(ii+1);
         if (ii==0) {ehold0 += epsil;}
@@ -3714,7 +3717,7 @@ int RK_Eval_NoInt(struct background *pba, double GammaPhi, double zhold, double 
     // Nu integration
     sigP = 1000;
     sigSt = (double)((maxBndNu - Mnu) / sigP);
-    for (int ii=0; ii < (sigP-1); ii++) {
+    for (ii=0; ii < (sigP-1); ii++) {
         ehold0 = Mnu + sigSt * (double)ii;
         ehold1 = Mnu + sigSt * (double)(ii+1);
         if (ii==0) {ehold0 += epsil;}
