@@ -1113,6 +1113,9 @@ int input_read_parameters(
 
     /* Quadrature modes, 0 is qm_auto. */
     class_read_int("integral_collision_term_max_steps",ppt->integral_collision_term_max_steps);
+    class_read_int("max_eps_over_Mphi_integrand_majoron",ppt->max_eps_over_Mphi_integrand_majoron);
+    class_read_int("cut_maj_collision_term_above_l",ppt->cut_maj_collision_term_above_l);
+    class_read_double("rho_maj_over_rho_nu_min",ppt->rho_maj_over_rho_nu_min);
     class_read_list_of_integers_or_default("Quadrature strategy",pba->ncdm_quadrature_strategy,0,N_ncdm);
     /* Number of momentum bins */
     class_read_list_of_integers_or_default("Number of momentum bins background",pba->ncdm_input_q_size_bg,-1,N_ncdm);
@@ -1217,6 +1220,24 @@ int input_read_parameters(
       }
     }else {
       ppt->use_approximate_collision_term = _FALSE_;
+    }
+    class_call(parser_read_string(pfc,
+                                  "integral_collision_term_is_log",
+                                  &string1,
+                                  &flag1,
+                                  errmsg),
+               errmsg,
+               errmsg);
+
+    if (flag1 == _TRUE_){
+      if((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL)){
+        ppt->integral_collision_term_is_log = _TRUE_;
+      }
+      else {
+        ppt->integral_collision_term_is_log = _FALSE_;
+      }
+    }else {
+      ppt->integral_collision_term_is_log = _FALSE_;
     }
     class_call(parser_read_string(pfc,
                                   "include_integral_approximate_collision_term",
@@ -3475,6 +3496,9 @@ int input_default_params(
   ppt->selection_width[0]=0.1;
 
   ppt->integral_collision_term_max_steps = 300;
+  ppt->max_eps_over_Mphi_integrand_majoron = 10;
+  ppt->cut_maj_collision_term_above_l = 100;//arbitrarily high: we never cut in the default case
+  ppt->rho_maj_over_rho_nu_min = 0;// we never neglect in the default case
   /** - primordial structure */
 
   ppm->primordial_spec_type = analytic_Pk;

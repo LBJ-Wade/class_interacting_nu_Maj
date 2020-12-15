@@ -4891,7 +4891,7 @@ int perturb_vector_init(
             }
 
 
-            if(1./a-1. <= pba->z_maj[pba->len_maj]  && ppt->use_majoron_security == _TRUE_ && pba->ncdm_background_distribution[n_ncdm] == _majoron_ ){
+            if((1./a-1. <= pba->z_maj[pba->len_maj] || ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]/ppw->pvecback[pba->index_bg_rho_ncdm1] < ppt->rho_maj_over_rho_nu_min)  && ppt->use_majoron_security == _TRUE_ && pba->ncdm_background_distribution[n_ncdm] == _majoron_ ){
               ppv->y[ppv->index_pt_psi0_ncdm1+ncdm_l_size*n_ncdm] = 0;
               ppv->y[ppv->index_pt_psi0_ncdm1+ncdm_l_size*n_ncdm+1]  = 0;
               ppv->y[ppv->index_pt_psi0_ncdm1+ncdm_l_size*n_ncdm+2] = 0;
@@ -6820,7 +6820,7 @@ int perturb_total_stress_energy(
           cg2_ncdm = w_ncdm*(1.0-1.0/(3.0+3.0*w_ncdm)*(3.0*w_ncdm-2.0+pseudo_p_ncdm/p_ncdm_bg));
           if ((ppt->has_source_delta_ncdm == _TRUE_) || (ppt->has_source_theta_ncdm == _TRUE_) || (ppt->has_source_delta_m == _TRUE_)) {
             if(pba->ncdm_background_distribution[n_ncdm] == _majoron_){
-              if(1./a-1. <= pba->z_maj[pba->len_maj]  && ppt->use_majoron_security == _TRUE_ ){
+              if((1./a-1. <= pba->z_maj[pba->len_maj] || ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]/ppw->pvecback[pba->index_bg_rho_ncdm1] < ppt->rho_maj_over_rho_nu_min) && ppt->use_majoron_security == _TRUE_ ){
                 ppw->delta_ncdm[n_ncdm] =0;
                 ppw->theta_ncdm[n_ncdm] =0;
                 ppw->shear_ncdm[n_ncdm] = 0;
@@ -6901,7 +6901,7 @@ int perturb_total_stress_energy(
 
           if ((ppt->has_source_delta_ncdm == _TRUE_) || (ppt->has_source_theta_ncdm == _TRUE_) || (ppt->has_source_delta_m == _TRUE_)) {
             if(pba->ncdm_background_distribution[n_ncdm] == _majoron_){
-              if(1./a-1. <= pba->z_maj[pba->len_maj]  && ppt->use_majoron_security == _TRUE_){
+              if((1./a-1. <= pba->z_maj[pba->len_maj] || ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]/ppw->pvecback[pba->index_bg_rho_ncdm1] < ppt->rho_maj_over_rho_nu_min)  && ppt->use_majoron_security == _TRUE_){
                 ppw->delta_ncdm[n_ncdm] =0;
                 ppw->theta_ncdm[n_ncdm] =0;
                 ppw->shear_ncdm[n_ncdm] = 0;
@@ -8100,7 +8100,7 @@ int perturb_print_variables(double tau,
           w_ncdm = p_ncdm_bg/rho_ncdm_bg;
 
           if(pba->ncdm_background_distribution[n_ncdm] == _majoron_){
-            if(1./a-1. <= pba->z_maj[pba->len_maj] && ppt->use_majoron_security == _TRUE_){
+            if((1./a-1. <= pba->z_maj[pba->len_maj] || pvecback[pba->index_bg_rho_ncdm1+n_ncdm]/pvecback[pba->index_bg_rho_ncdm1] < ppt->rho_maj_over_rho_nu_min) && ppt->use_majoron_security == _TRUE_){
               delta_ncdm[n_ncdm] = 0;
               theta_ncdm[n_ncdm] = 0;
               shear_ncdm[n_ncdm] = 0;
@@ -8173,7 +8173,7 @@ int perturb_print_variables(double tau,
           delta_p_ncdm *= factor/3.;
 
           if(pba->ncdm_background_distribution[n_ncdm] == _majoron_){
-            if(1./a-1. <= pba->z_maj[pba->len_maj] && ppt->use_majoron_security == _TRUE_){
+            if((1./a-1. <= pba->z_maj[pba->len_maj] || pvecback[pba->index_bg_rho_ncdm1+n_ncdm]/pvecback[pba->index_bg_rho_ncdm1] < ppt->rho_maj_over_rho_nu_min) && ppt->use_majoron_security == _TRUE_){
               delta_ncdm[n_ncdm] = 0;
               theta_ncdm[n_ncdm] = 0;
               shear_ncdm[n_ncdm] = 0;
@@ -9387,7 +9387,7 @@ int perturb_derivs(double tau,
             q = pba->q_ncdm[n_ncdm][index_q]*qmax;
             dlnf0_dlnq=0;
             dlnf0_dz=0;
-            if(ppt->use_majoron_security == _TRUE_ && 1./a-1. <= pba->z_maj[pba->len_maj] && pba->ncdm_background_distribution[n_ncdm] == _majoron_ )dlnf0_dlnq =0;
+            if(ppt->use_majoron_security == _TRUE_ && (1./a-1. <= pba->z_maj[pba->len_maj] || pvecback[pba->index_bg_rho_ncdm1+n_ncdm]/pvecback[pba->index_bg_rho_ncdm1] < ppt->rho_maj_over_rho_nu_min) && pba->ncdm_background_distribution[n_ncdm] == _majoron_ )dlnf0_dlnq =0;
             else if(pba->ncdm_background_distribution[n_ncdm] == _fermi_dirac_v2_ || pba->ncdm_background_distribution[n_ncdm] == _majoron_){
               // if (1./a-1. >= 1.05*pba->z_maj[pba->len_maj] && 1./a-1. <= 0.95*pba->z_maj[0]){
               // if (1./a-1. > 10){
@@ -9421,7 +9421,7 @@ int perturb_derivs(double tau,
             // printf("pba->z_nrel[pba->entry_is_M_phi]  %e pba->z_maj[pba->len_maj] %e\n", pba->z_nrel[pba->entry_is_M_phi] ,pba->z_maj[pba->len_maj]);
             // printf("dealing with ncdm %d at idx_q %d a %e k %e a_prime_over_a %e\n", n_ncdm,index_q,a,k,a_prime_over_a);
             // if(pba->Gamma_phi[n_ncdm] != 0 && (1./a-1. >= pba->z_nrel[pba->entry_is_M_phi] || 1/a-1 >= pba->z_maj[pba->len_maj]) && 1/a-1 <= pba->z_maj[20] && ppt->include_collision_term == _TRUE_ && k > a_prime_over_a){
-            if(pba->Gamma_phi[n_ncdm] != 0 && (1./a-1. >= pba->z_nrel[pba->entry_is_M_phi] || 1/a-1 >= pba->z_maj[pba->len_maj]) && 1/a-1 <= pba->z_maj[20] && ppt->include_collision_term == _TRUE_ ){
+            if(pba->Gamma_phi[n_ncdm] != 0 &&  1/a-1 >= pba->z_maj[pba->len_maj] && 1/a-1 <= pba->z_maj[20] && ppt->include_collision_term == _TRUE_ ){
             // if(pba->Gamma_phi[n_ncdm] != 0 && 1/a-1 >= pba->z_maj[pba->len_maj] && 1/a-1 <= pba->z_maj[20] &&  ppt->include_collision_term == _TRUE_){
               // if(index_q==5 && n_ncdm ==0 && k==1)printf("%e ",1/a-1);
               for(l=0; l<pv->l_max_ncdm[n_ncdm]; l++){
@@ -9431,19 +9431,29 @@ int perturb_derivs(double tau,
                 if(ppt->use_approximate_collision_term == _TRUE_){
                   // qmax_ncdm[n]=pba->ncdm_qmax[n_ncdm];
                     // printf("before calling qmax %e\n", qmax);
-                    evaluate_collision_terms_approximate_nuphi(pba,
-                                                    ppt,
-                                                    pv,
-                                                    a,
-                                                    pvecback,
-                                                    pba->f_ncdm[n_ncdm],
-                                                    y,
-                                                    qmax,
-                                                    n_ncdm,
-                                                    index_q,
-                                                    l,
-                                                    idx+l,
-                                                    &pv->Collision_l[n_ncdm][l]);
+              	    	   if(n_ncdm == 1 && l>ppt->cut_maj_collision_term_above_l){
+                    			        pv->Collision_l[n_ncdm][l] = 0.0;
+                    		 }
+                         // else if(ppt->use_majoron_security == _TRUE_ && (1./a-1. <= pba->z_maj[pba->len_maj] || pvecback[pba->index_bg_rho_ncdm1+n_ncdm]/pvecback[pba->index_bg_rho_ncdm1] < ppt->rho_maj_over_rho_nu_min)){
+                         else if(ppt->use_majoron_security == _TRUE_ && 1./a-1. <= pba->z_maj[pba->len_maj] ){
+                         // else if(ppt->use_majoron_security == _TRUE_ && (1./a-1. <= pba->z_maj[pba->len_maj] || 1./a-1. >= pba->z_maj[0])){
+                           pv->Collision_l[n_ncdm][l] = 0.0;
+                         }
+                         else {
+                                  evaluate_collision_terms_approximate_nuphi(pba,
+                                                                  ppt,
+                                                                  pv,
+                                                                  a,
+                                                                  pvecback,
+                                                                  pba->f_ncdm[n_ncdm],
+                                                                  y,
+                                                                  qmax,
+                                                                  n_ncdm,
+                                                                  index_q,
+                                                                  l,
+                                                                  idx+l,
+                                                                  &pv->Collision_l[n_ncdm][l]);
+                          }
                 }else{
                   class_stop(ppt->error_message,"VP Oct 20: evaluate_collision_terms_nuphi function is obsolte and needs to be updated to work.");
                   evaluate_collision_terms_nuphi(pba,
@@ -9459,7 +9469,7 @@ int perturb_derivs(double tau,
                 }
                                                 // &Collision[l]);
                 // else pv->Collision_l[n_ncdm][l] = 0;
-                // printf("l %d collision %e !!\n",l,pv->Collision_l[n_ncdm][l]);
+                // printf("n_ncdm %d k %e z %e zini %e zfinal %e l %d collision %e !!\n",n_ncdm,k,1/a-1, pba->z_maj[20], pba->z_maj[pba->len_maj],l,pv->Collision_l[n_ncdm][l]);
                 // if(index_q==5 && n_ncdm ==0 && k==1)printf("%e ",pv->Collision_l[n_ncdm][l]);
 
                 if(isnan(pv->Collision_l[n_ncdm][l]))pv->Collision_l[n_ncdm][l] = 0;
@@ -9482,7 +9492,7 @@ int perturb_derivs(double tau,
             // dy[idx] = -qk_div_epsilon*y[idx+1]+metric_continuity*dlnf0_dlnq/3.+  pv->Collision_l[n_ncdm][0];
             // dy[idx] = -qk_div_epsilon*y[idx+1]+metric_continuity*dlnf0_dlnq/3.+  Collision[0];
             dy[idx] = -qk_div_epsilon*y[idx+1]+metric_continuity*dlnf0_dlnq/3.+ pvecback[pba->index_bg_H]*y[idx]*dlnf0_dz+ pv->Collision_l[n_ncdm][0];
-            // printf("a %e n_ncdm %d -qk_div_epsilon*y[idx+1] %e metric_continuity*dlnf0_dlnq/3 %e Collision_l[0] %e dlnf0_dlnq %e\n",a, n_ncdm,-qk_div_epsilon*y[idx+1],metric_continuity*dlnf0_dlnq/3,pv->Collision_l[n_ncdm][0],dlnf0_dlnq);
+            if(ppt->perturbations_verbose>10)printf("a %e k %e n_ncdm %d index_q %d -qk_div_epsilon*y[idx+1] %e metric_continuity*dlnf0_dlnq/3 %e Collision_l[0] %e pvecback[pba->index_bg_H]*y[idx]*dlnf0_dz %e\n",a,k, n_ncdm,index_q,-qk_div_epsilon*y[idx+1],metric_continuity*dlnf0_dlnq/3,pv->Collision_l[n_ncdm][0],pvecback[pba->index_bg_H]*y[idx]*dlnf0_dz);
             /** - -----> ncdm velocity for given momentum bin */
 
             dy[idx+1] = qk_div_epsilon/3.0*(y[idx] - 2*s_l[2]*y[idx+2])
@@ -9514,6 +9524,7 @@ int perturb_derivs(double tau,
                 but with curvature taken into account a la arXiv:1305.3261 */
 
             dy[idx+l] = qk_div_epsilon*y[idx+l-1]-(1.+l)*k*cotKgen*y[idx+l];
+
 
             /** - -----> jump to next momentum bin or species */
 
@@ -10471,6 +10482,8 @@ int interpolate_linear_psi_table_at_eps(
       if(q>pba->q_ncdm[n_ncdm][i]*qmax  && q < pba->q_ncdm[n_ncdm][i+1]*qmax){
             // *psi_at_eps = (psi_table[pba->i+1]-psi_table[i])/(pba->q_ncdm[n_ncdm][i+1]*qmax-pba->q_ncdm[n_ncdm][i]*qmax)*q;
             *psi_at_eps = (psi_table[idx_nu+l+(pv->l_max_ncdm[n_ncdm]+1)*(i+1)]-psi_table[idx_nu+l+(pv->l_max_ncdm[n_ncdm]+1)*(i)])/(pba->q_ncdm[n_ncdm][i+1]*qmax-pba->q_ncdm[n_ncdm][i]*qmax)*q;
+            // printf(" q %e pba->q_ncdm[n_ncdm] %e psi %e psi+1 %e result %e\n", q, pba->q_ncdm[n_ncdm][i]*qmax,psi_table[idx_nu+l+(pv->l_max_ncdm[n_ncdm]+1)*(i)],psi_table[idx_nu+l+(pv->l_max_ncdm[n_ncdm]+1)*(i+1)],*psi_at_eps);
+
             // *psi_at_eps = (psi_table[idx_nu+l+(pv->l_max_ncdm[n_ncdm]+1)*(i)]);
             // if(n_ncdm==1)printf("idx_nu %d psi_table[idx_nu+l+(pv->l_max_ncdm[n_ncdm]+1)*(i+1)] %e  psi_table[idx_nu+l+(pv->l_max_ncdm[n_ncdm]+1)*(i)] %e \n",idx_nu,psi_table[idx_nu+l+(pv->l_max_ncdm[n_ncdm]+1)*(i+1)],psi_table[idx_nu+l+(pv->l_max_ncdm[n_ncdm]+1)*(i)]);
             // *psi_at_eps = 0;
@@ -10861,11 +10874,11 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
   double epsilon_min, epsilon_max,logepsilon;
   double max_steps = ppt->integral_collision_term_max_steps;
   int sign;
-  int integral_is_log = _FALSE_;
   *Collision_l = 0;
   double T_nu,T_phi,mu_nu,mu_phi;
   double Integral = 0;
   double p,E;
+  double integral1=0,integral2=0;
 
   int count_nu=0, count_phi=0;
 
@@ -10894,6 +10907,8 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
     epsilon_min = m_star/2/pba->M_phi*(epsilon_phi*sqrt(1+4*pba->m_ncdm_in_eV[n_ncdm_nu]*pba->m_ncdm_in_eV[n_ncdm_nu]/m_star/m_star)-q_phi);
     epsilon_max = m_star/2/pba->M_phi*(epsilon_phi*sqrt(1+4*pba->m_ncdm_in_eV[n_ncdm_nu]*pba->m_ncdm_in_eV[n_ncdm_nu]/m_star/m_star)+q_phi);
 
+
+
     // *Collision_l = fbar_phi*pv->psi_table[n_ncdm][index_l_fix][index_q_fix]*m_star/pba->M_phi*q_phi;
     *Collision_l = fbar_phi*psi_table[idx_nu+index_l_fix+(pv->l_max_ncdm[n_ncdm]+1)*(index_q_fix)]*m_star/pba->M_phi*q_phi;
   }
@@ -10921,6 +10936,11 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
     epsilon_max = m_star*pba->M_phi/2/pba->m_ncdm_in_eV[n_ncdm_nu]/pba->m_ncdm_in_eV[n_ncdm_nu]
               *(epsilon_nu*sqrt(1+4*pba->m_ncdm_in_eV[n_ncdm]*pba->m_ncdm_in_eV[n_ncdm]/m_star/m_star)+q_nu);
 
+    if(epsilon_max>ppt->max_eps_over_Mphi_integrand_majoron*pba->M_phi*a+epsilon_nu){
+      // printf("epsilon_max %e ppt->max_eps_over_Mphi_integrand_majoron*pba->M_phi*a %e \n",epsilon_max ,ppt->max_eps_over_Mphi_integrand_majoron*pba->M_phi*a);
+      epsilon_max = ppt->max_eps_over_Mphi_integrand_majoron*pba->M_phi*a+epsilon_nu;
+    }
+
     *Collision_l = a*T_nu*psi_table[idx_nu+index_l_fix+(pv->l_max_ncdm[n_ncdm]+1)*(index_q_fix)]*exp(mu_nu/T_nu)*(exp(-epsilon_max/a/T_nu)-exp(-epsilon_min/a/T_nu));
     // *Collision_l = psi_table[idx_nu+index_l_fix+(pv->l_max_ncdm[n_ncdm]+1)*(index_q_fix)]*exp(-(epsilon_nu/a-mu_nu)/T_nu)*(
     //   a*T_nu*(exp(((epsilon_nu-epsilon_min)/a+mu_nu)/T_nu)-exp(((epsilon_nu-epsilon_max)/a+mu_nu)/T_nu)));
@@ -10934,7 +10954,7 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
 
     //before loop, extract the relevant f and psi that are evaluated at fix energies:
 
-    if(integral_is_log == _TRUE_)
+    if(ppt->integral_collision_term_is_log == _TRUE_)
       h = (log10(epsilon_max)-log10(epsilon_min))/ (max_steps-1);//define the size of step (in log)
     else
       h = ((epsilon_max)-(epsilon_min))/ (max_steps-1);//define the size of step
@@ -10942,18 +10962,18 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
 
    for (index_q_loop=0; index_q_loop < max_steps; index_q_loop ++) {
      //now loop: we calculate the complicated integral
-     if(integral_is_log == _TRUE_)
+     if(ppt->integral_collision_term_is_log == _TRUE_)
        logepsilon = h*index_q_loop+log10(epsilon_min);
      else
        epsilon = h*index_q_loop+(epsilon_min);
 
      if(n_ncdm == pba->entry_is_M_phi){
        //if we treat the majoron, we loop over "nu"
-       if(integral_is_log == _TRUE_)
+       if(ppt->integral_collision_term_is_log == _TRUE_)
          epsilon_nu = pow(10,logepsilon);
        else
          epsilon_nu = epsilon;
-       if(integral_is_log == _TRUE_)
+       if(ppt->integral_collision_term_is_log == _TRUE_)
          w = epsilon_nu * h *log(10);//deps=eps*dlogeps*log10
        else
          w =  h ;
@@ -11012,15 +11032,17 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
        }
        // printf("maj psi_nu_ephienu %e \n", q,psi_nu_ephienu);
        //compute integral
-       Integral += -w*fbarnu_enu*(fbarnu_ephienu)*(psi_nu_enu+psi_nu_ephienu);
+       integral1 += -w*fbarnu_enu*(fbarnu_ephienu)*(psi_nu_enu);
+       integral2 += -w*fbarnu_enu*(fbarnu_ephienu)*(psi_nu_ephienu);
+
        if(-w*fbarnu_enu*(fbarnu_ephienu)*(psi_nu_enu+psi_nu_ephienu)!=0)count_phi++;
        }else{
        //if we treat the neutrinos, we loop over "phi"
-       if(integral_is_log == _TRUE_)
+       if(ppt->integral_collision_term_is_log == _TRUE_)
          epsilon_phi = pow(10,logepsilon);
        else
          epsilon_phi = epsilon;
-       if(integral_is_log == _TRUE_)
+       if(ppt->integral_collision_term_is_log == _TRUE_)
          w = epsilon_phi * h *log(10);//deps=eps*dlog10eps*log(10)
        else
          w = h;
@@ -11077,17 +11099,21 @@ int evaluate_collision_terms_approximate_nuphi( struct background * pba,
        }
        // printf("neutrinos psi_nu_ephienu %e\n", psi_nu_ephienu);
 
-       Integral += w*(fbarphi_ephi*psi_phi_ephi-fbarnu_enu*fbarnu_ephienu*psi_nu_ephienu);
+       // Integral += w*(fbarphi_ephi*psi_phi_ephi-fbarnu_enu*fbarnu_ephienu*psi_nu_ephienu);
+       // Integral += w*(fbarphi_ephi*psi_phi_ephi-fbarnu_enu*fbarnu_ephienu*psi_nu_ephienu);
+       integral1 += w*(fbarphi_ephi*psi_phi_ephi);
+       integral2 += w*(-fbarnu_enu*fbarnu_ephienu*psi_nu_ephienu);
        // Integral += w*(exp((epsilon_nu/a-mu_nu)/T_nu)*exp(-(epsilon_phi/a-mu_phi)/T_phi)*psi_phi_ephi-exp(-((epsilon_phi-epsilon_nu)/a-mu_nu)/T_nu)*psi_nu_ephienu);
        // if(w*(exp((epsilon_nu/a-mu_nu)/T_nu)*exp(-(epsilon_phi/a-mu_phi)/T_phi)*psi_phi_ephi-exp(-((epsilon_phi-epsilon_nu)/a-mu_nu)/T_nu)*psi_nu_ephienu)!=0)count_nu++;
        // Integral += w*(-fbarnu_enu*fbarnu_ephienu*psi_nu_ephienu);
        // if(w*(-fbarnu_enu*fbarnu_ephienu*psi_nu_ephienu)!=0)
-       // printf("q %e epsilon_phi %e qmax_phi %e fbarphi_ephi %e psi_phi_ephi %e \n depislon %e fbarnu_enu %e fbarnu_ephienu %e psi_nu_ephienu %e \n",q,epsilon_phi,fbarphi_ephi,psi_phi_ephi ,depsilon,fbarnu_enu,fbarnu_ephienu,psi_nu_ephienu   );
        // printf("q %e epsilon_phi %e qmax_phi %e fbarphi_ephi %e psi_phi_ephi %e \n depislon %e fbarnu_enu %e fbarnu_ephienu %e psi_nu_ephienu %e \n",q,epsilon_phi,qmax_phi,fbarphi_ephi,psi_phi_ephi ,depsilon,fbarnu_enu,fbarnu_ephienu,psi_nu_ephienu   );
-
+       // printf("q %e epsilon_phi %e qmax_phi %e fbarphi_ephi %e psi_phi_ephi %e \n depislon %e fbarnu_enu %e fbarnu_ephienu %e psi_nu_ephienu %e \n",q,epsilon_phi,qmax_phi,fbarphi_ephi,psi_phi_ephi ,depsilon,fbarnu_enu,fbarnu_ephienu,psi_nu_ephienu   );
      }
    }
-   if(ppt->perturbations_verbose>10)printf("l %d q %d a %e n_ncdm %d *Collision_l %e Integral %e \n",index_l_fix,index_q_fix,a,n_ncdm,*Collision_l,Integral);
+   Integral = integral1+integral2;
+
+   if(ppt->perturbations_verbose>11)printf("l %d q %d z %e n_ncdm %d *Collision_l %e Integral %e integral1 %e integral2 %e\n",index_l_fix,index_q_fix,1/a-1,n_ncdm,*Collision_l,Integral,integral1,integral2);
 
    *Collision_l += Integral;
 

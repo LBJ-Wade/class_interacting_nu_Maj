@@ -437,9 +437,13 @@ struct perturbs
 
   short include_collision_term;    /**< VP: should we include the collision term for majoron-Neutrinos collisions? */
   short use_approximate_collision_term;    /**< VP: should we use the approximate collision term for majoron-Neutrinos collisions? */
+  short integral_collision_term_is_log;    /**< VP: Is collision term integral over log energy? default is yes.*/
   short include_integral_approximate_collision_term;    /**< VP: should we use include the integral in the approximate collision term for majoron-Neutrinos collisions? */
   short use_majoron_security;/**< VP:If set to yes, the majoron is ignored when z drops below the last z value in the majoron table.*/
   int integral_collision_term_max_steps;/**< VP:number of steps to perform integral involved in the collision term between neutrinos and majoron.*/
+  int cut_maj_collision_term_above_l;/**< VP: l above which we neglect the majoron collison term.*/
+  int max_eps_over_Mphi_integrand_majoron;   /**<VP: maximum value of eps (in unit of Mphi*a) for the integral appearing in the majoron collision term */
+  double rho_maj_over_rho_nu_min;/**< VP: fractional energy density bellow which we neglect the majoron in perts.*/
 
   //@}
 
